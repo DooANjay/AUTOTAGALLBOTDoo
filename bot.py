@@ -65,8 +65,8 @@ async def del_partner(event):
 
     if input_admin.isdigit():
         indeks = int(input_admin) - 1
-        if 0 = 300:
-                waktu_habis = True
+        if 0  299:
+                t_data[1] = True
                 break
 
             teks_tag = f"{pesan_teks}\n\n📢 **OPIUM TAGALL**\n⭐ **SVBLVNE X DRAGSPIN** ⭐\n━━━━━━━━━━━━━━━━━━━━\n🔗 {', '.join(chunk)}"
@@ -79,19 +79,18 @@ async def del_partner(event):
             
             await asyncio.sleep(3.5)
 
-            if int(time.time() - start_time) >= 60 and not laporan_terkirim:
+            if int(time.time() - t_data[0]) > 59 and not t_data[2]:
                 try:
                     await bot.send_message(user_pemicu, "📊 **LAPORAN PROGRES AUTO-TAGALL**\n✅ Bot sukses berjalan selama 1 menit di grup.")
-                    laporan_terkirim = True
+                    t_data[2] = True
                 except:
                     pass
 
-        end_time = time.time()
-        durasi_menit = round((end_time - start_time) / 60)
-        durasi_teks = f"{durasi_menit}m" if durasi_menit > 0 else f"{round(end_time - start_time)}s"
+        durasi_menit = round((time.time() - t_data[0]) / 60)
+        durasi_teks = f"{durasi_menit}m" if durasi_menit > 0 else f"{round(time.time() - t_data[0])}s"
         waktu_sekarang = datetime.now().strftime("%d-%m-%Y %H:%M")
 
-        if waktu_habis:
+        if t_data[1]:
             status_msg = await bot.send_message(TARGET_GROUP_ID, "⏱️ **Batas waktu 5 menit tercapai!** Semua pesan sampah akan dibersihkan dalam 5 menit...")
         else:
             status_msg = await bot.send_message(TARGET_GROUP_ID, "✅ **Tagall Selesai!** Semua pesan sampah akan dibersihkan dalam 5 menit...")
@@ -120,7 +119,7 @@ async def del_partner(event):
 
         try:
             if banner_file:
-                await bot.send_file(user_pemicu, file=banner_file, caption=teks_text=teks_bukti, parse_mode='md')
+                await bot.send_file(user_pemicu, file=banner_file, caption=teks_bukti, parse_mode='md')
             else:
                 await bot.send_message(user_pemicu, teks_bukti, parse_mode='md', link_preview=False)
         except:
@@ -181,3 +180,4 @@ async def handle_public_auto_tagall(event):
         asyncio.create_task(process_queue())
 
 bot.run_until_disconnected()
+
