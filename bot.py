@@ -3,6 +3,7 @@ import asyncio
 import time
 import json
 import re
+from datetime import datetime
 from telethon import TelegramClient, events
 
 # 1. MENGAMBIL DATA DARI ENVIRONMENT VARIABLES RAILWAY
@@ -21,6 +22,10 @@ bot = TelegramClient('bot_official_session', API_ID, API_HASH).start(bot_token=B
 
 FILE_DB = "partners_database.json"
 
+# Inisialisasi Antrian Global (Queue)
+tagall_queue = asyncio.Queue()
+is_processing = False
+
 def load_partners():
     if os.path.exists(FILE_DB):
         try:
@@ -32,7 +37,7 @@ def save_partners(data):
     with open(FILE_DB, "w") as f: json.dump(data, f, indent=4)
 
 PARTNERS_LIST = load_partners()
-print("⚡ Bot Resmi Auto-Tagall (Public Open + Auto Clean 5m) Siap!")
+print("⚡ Bot Resmi Auto-Tagall Antrian + Laporan Banner Siap!")
 
 # --- FITUR 1: TAMBAH PARTNER VIA PM (KHUSUS OWNER) ---
 @bot.on(events.NewMessage(pattern=r'(?i)^/addpartner(.*)'))
@@ -60,28 +65,91 @@ async def del_partner(event):
 
     if input_admin.isdigit():
         indeks = int(input_admin) - 1
-        if 0 <= indeks < len(PARTNERS_LIST):
-            terhapus = PARTNERS_LIST.pop(indeks)
-            save_partners(PARTNERS_LIST)
-            await event.respond(f"🗑️ Partner nomor {input_admin} ({terhapus}) telah dihapus.")
-    else:
-        if input_admin in PARTNERS_LIST:
-            PARTNERS_LIST.remove(input_admin)
-            save_partners(PARTNERS_LIST)
-            await event.respond(f"🗑️ Link {input_admin} telah dihapus.")
+        if 0 = 300: # Batasan 5 menit
+                waktu_habis = True
+                break
 
-# --- FITUR 3: LIHAT DAFTAR PARTNER VIA PM (KHUSUS OWNER) ---
-@bot.on(events.NewMessage(pattern=r'(?i)^/listpartner'))
-async def list_partner(event):
-    if event.sender_id != OWNER_ID or not event.is_private: return
-    if not PARTNERS_LIST:
-        await event.respond("📂 Database Kosong.")
-        return
-    teks_list = "📋 **DAFTAR PARTNER AKTIF**\n━━━━━━━━━━━━━━━━━━━━\n"
-    for i, link in enumerate(PARTNERS_LIST, start=1): teks_list += f"{i}. {link}\n"
-    await event.respond(teks_list, link_preview=False)
+            teks_tag = f"{pesan_teks}\n\n📢 **OPIUM TAGALL**\n⭐ **SVBLVNE X DRAGSPIN** ⭐\n━━━━━━━━━━━━━━━━━━━━\n🔗 {', '.join(chunk)}"
+            try:
+                msg = await bot.send_message(TARGET_GROUP_ID, teks_tag, parse_mode='md')
+                sent_message_ids.append(msg.id)
+                total_tertag += len(chunk)
+            except:
+                pass
+            
+            await asyncio.sleep(3.5)
 
-# --- FITUR 4: PM TEKS UTAMA (BISA OLEH SIAPA PUN / PUBLIC) -> AUTO TAGALL ---
+            if time.time() - start_time >= 60 and not laporan_terkirim:
+                try:
+                    await bot.send_message(user_pemicu, "📊 **LAPORAN PROGRES AUTO-TAGALL**\n✅ Bot sukses berjalan selama 1 menit di grup.")
+                    laporan_terkirim = True
+                except:
+                    pass
+
+        # Menghitung durasi asli pemrosesan
+        end_time = time.time()
+        durasi_menit = round((end_time - start_time) / 60)
+        durasi_teks = f"{durasi_menit}m" if durasi_menit > 0 else f"{round(end_time - start_time)}s"
+
+        # Format Waktu Indonesia Barat (WIB) untuk struk laporan
+        waktu_sekarang = datetime.now().strftime("%d-%m-%Y %H:%M")
+
+        if waktu_habis:
+            status_msg = await bot.send_message(TARGET_GROUP_ID, "⏱️ **Batas waktu 5 menit tercapai!** Semua pesan sampah akan dibersihkan dalam 5 menit...")
+        else:
+            status_msg = await bot.send_message(TARGET_GROUP_ID, "✅ **Tagall Selesai!** Semua pesan sampah akan dibersihkan dalam 5 menit...")
+        
+        sent_message_ids.append(status_msg.id)
+
+        # --- 2. SISTEM STRUK BUKTI LAPORAN DI PM USER ---
+        # Mencari banner gambar profil grup untuk dipakai kembali sebagai background laporan (jika ada)
+        banner_file = None
+        try:
+            banner_file = await bot.download_profile_photo(TARGET_GROUP_ID, file=bytes)
+        except:
+            pass
+
+        # Merakit teks laporan akhir persis seperti gambar contoh
+        teks_bukti = (
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "**TAGALL SELESAI**\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"📆 **TANGGAL :** `{waktu_sekarang}`\n"
+            f"🏰 **GROUP :** **{chat.title}**\n"
+            f"🤝 **PARTNER :** {link_mitra}\n"
+            f"📩 **TERKIRIM :** `{total_tertag}`\n"
+            f"⏳ **DURASI :** `{durasi_teks}`\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "**teruskan pesan ini sebagai bukti!!!**"
+        )
+
+        try:
+            # Kirim struk bukti beserta gambar banner-nya ke PM user pemicu
+            if banner_file:
+                await bot.send_file(user_pemicu, file=banner_file, caption=teks_bukti, parse_mode='md')
+            else:
+                await bot.send_message(user_pemicu, teks_bukti, parse_mode='md', link_preview=False)
+        except:
+            pass
+
+        # Menandakan pekerjaan ini selesai diproses
+        tagall_queue.task_done()
+
+        # Jalankan fungsi pembersihan berkas sampah di background agar tidak mengunci antrean selanjutnya
+        asyncio.create_task(clean_messages_delayed(sent_message_ids))
+
+    is_processing = False
+
+# Fungsi internal untuk membersihkan pesan grup setelah delay 5 menit
+async def clean_messages_delayed(message_ids):
+    await asyncio.sleep(300) # Tunggu 5 menit (300 detik)
+    try:
+        await bot.delete_messages(TARGET_GROUP_ID, message_ids)
+        await bot.send_message(OWNER_ID, f"🧹 **AUTO CLEAN BERHASIL:** Sebanyak {len(message_ids)} pesan sampah tagall di grup target telah dibersihkan tanpa sisa!")
+    except Exception as e:
+        print(f"Gagal melakukan auto-clean pesan grup: {e}")
+
+# --- FITUR 4: PM TEKS UTAMA (PUBLIC) -> VALIDASI -> MASUKKAN KE ANTRIAN ---
 @bot.on(events.NewMessage(incoming=True))
 async def handle_public_auto_tagall(event):
     if not event.is_private or event.text.startswith("/"):
@@ -96,93 +164,15 @@ async def handle_public_auto_tagall(event):
         return
 
     link_ditemukan = False
+    link_terverifikasi = ""
     for url in urls:
         clean_url = url.strip().rstrip(".,;)")
         if clean_url in PARTNERS_LIST:
             link_ditemukan = True
+            link_terverifikasi = clean_url
             break
             
     if not link_ditemukan:
         await event.respond("❌ **PROSES DITOLAK!** Link Partner di dalam teks ini tidak terdaftar di sistem.")
         return
-
-    await event.respond("✅ **LINK TERVERIFIKASI!** 🚀 Memulai proses Tagall di grup target...")
-
-    # Array untuk menampung semua ID pesan yang dikirim bot di grup agar bisa dihapus massal nanti
-    sent_message_ids = []
-
-    try:
-        chat = await bot.get_entity(TARGET_GROUP_ID)
-        init_msg = await bot.send_message(
-            TARGET_GROUP_ID, 
-            f"🚀 **TAGALL DIMULAI AUTOMATICALLY BY BOT**\n👥 **GROUP :** **{chat.title}**\n⏱️ *Durasi Maksimal: 5 Menit & Auto-Clean Aktif!*", 
-            link_preview=False
-        )
-        sent_message_ids.append(init_msg.id)
-    except Exception as e:
-        await event.respond(f"❌ Bot gagal mengirim pesan ke grup target. Pastikan bot sudah masuk dan menjadi Admin!\nError: {e}")
-        return
-
-    # Kumpulkan data member grup
-    mentions = []
-    async for user in bot.iter_participants(TARGET_GROUP_ID):
-        if not user.bot:
-            name = user.first_name if user.first_name else "Members"
-            mentions.append(f"[{name}](tg://user?id={user.id})")
-
-    if not mentions: 
-        return
-
-    chunk_size = 5
-    chunks = [mentions[i:i + chunk_size] for i in range(0, len(mentions), chunk_size)]
-    
-    start_time = time.time()
-    laporan_terkirim = False
-    waktu_habis = False
-
-    # Proses pengiriman mention oleh Bot
-    for chunk in chunks:
-        # Cek jika durasi total berjalan sudah lewat dari 5 menit (300 detik)
-        if time.time() - start_time >= 300:
-            waktu_habis = True
-            break
-
-        teks_tag = f"{event.text}\n\n📢 **OPIUM TAGALL**\n⭐ **SVBLVNE X DRAGSPIN** ⭐\n━━━━━━━━━━━━━━━━━━━━\n🔗 {', '.join(chunk)}"
-        try:
-            msg = await bot.send_message(TARGET_GROUP_ID, teks_tag, parse_mode='md')
-            sent_message_ids.append(msg.id)
-        except:
-            pass
-        
-        await asyncio.sleep(3.5) # Jeda aman anti-flood
-
-        # Kirim bukti status 1 menit ke PM user yang memicu
-        if time.time() - start_time >= 60 and not laporan_terkirim:
-            try:
-                await bot.send_message(user_pemicu, "📊 **LAPORAN PROGRES AUTO-TAGALL**\n✅ Bot sukses berjalan selama 1 menit di grup.")
-                laporan_terkirim = True
-            except:
-                pass
-
-    # Mengirim status akhir ke grup sebelum dibersihkan
-    if waktu_habis:
-        status_msg = await bot.send_message(TARGET_GROUP_ID, "⏱️ **Batas waktu 5 menit tercapai!** Proses mention dihentikan. Semua pesan sampah akan dihapus otomatis dalam 5 menit dari sekarang...")
-    else:
-        status_msg = await bot.send_message(TARGET_GROUP_ID, "✅ **Tagall Selesai!** Semua pesan sampah akan dihapus otomatis dalam 5 menit dari sekarang...")
-    
-    sent_message_ids.append(status_msg.id)
-    await event.respond("✅ **Tagall Selesai/Dihentikan!** Mengaktifkan hitung mundur 5 menit untuk penghapusan sampah di grup.")
-
-    # --- SISTEM PENGHAPUSAN OTOMATIS (DELAY 5 MENIT = 300 DETIK) ---
-    await asyncio.sleep(300)
-    
-    try:
-        # Menghapus seluruh pesan yang tercatat di array sent_message_ids sekaligus
-        await bot.delete_messages(TARGET_GROUP_ID, sent_message_ids)
-        # Kirim notifikasi log sukses ke PM Owner agar terpantau bersih
-        await bot.send_message(OWNER_ID, f"🧹 **AUTO CLEAN BERHASIL:** Sebanyak {len(sent_message_ids)} pesan sampah tagall di grup tujuan telah dibersihkan tanpa sisa!")
-    except Exception as e:
-        print(f"Gagal melakukan auto-clean pesan grup: {e}")
-
-bot.run_until_disconnected()
 
