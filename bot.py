@@ -79,7 +79,7 @@ async def del_partner(event):
             
             await asyncio.sleep(3.5)
 
-            if time.time() - start_time >= 60 and not laporan_terkirim:
+            if int(time.time() - start_time) >= 60 and not laporan_terkirim:
                 try:
                     await bot.send_message(user_pemicu, "📊 **LAPORAN PROGRES AUTO-TAGALL**\n✅ Bot sukses berjalan selama 1 menit di grup.")
                     laporan_terkirim = True
@@ -120,7 +120,7 @@ async def del_partner(event):
 
         try:
             if banner_file:
-                await bot.send_file(user_pemicu, file=banner_file, caption=teks_bukti, parse_mode='md')
+                await bot.send_file(user_pemicu, file=banner_file, caption=teks_text=teks_bukti, parse_mode='md')
             else:
                 await bot.send_message(user_pemicu, teks_bukti, parse_mode='md', link_preview=False)
         except:
