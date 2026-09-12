@@ -65,7 +65,7 @@ async def del_partner(event):
 
     if input_admin.isdigit():
         indeks = int(input_admin) - 1
-        if 0 = 300: # Batasan 5 menit
+        if 0 = 300:
                 waktu_habis = True
                 break
 
@@ -86,12 +86,9 @@ async def del_partner(event):
                 except:
                     pass
 
-        # Menghitung durasi asli pemrosesan
         end_time = time.time()
         durasi_menit = round((end_time - start_time) / 60)
         durasi_teks = f"{durasi_menit}m" if durasi_menit > 0 else f"{round(end_time - start_time)}s"
-
-        # Format Waktu Indonesia Barat (WIB) untuk struk laporan
         waktu_sekarang = datetime.now().strftime("%d-%m-%Y %H:%M")
 
         if waktu_habis:
@@ -101,15 +98,13 @@ async def del_partner(event):
         
         sent_message_ids.append(status_msg.id)
 
-        # --- 2. SISTEM STRUK BUKTI LAPORAN DI PM USER ---
-        # Mencari banner gambar profil grup untuk dipakai kembali sebagai background laporan (jika ada)
+        # Mencari banner gambar profil grup untuk struk laporan
         banner_file = None
         try:
             banner_file = await bot.download_profile_photo(TARGET_GROUP_ID, file=bytes)
         except:
             pass
 
-        # Merakit teks laporan akhir persis seperti gambar contoh
         teks_bukti = (
             "━━━━━━━━━━━━━━━━━━━━\n"
             "**TAGALL SELESAI**\n"
@@ -124,7 +119,6 @@ async def del_partner(event):
         )
 
         try:
-            # Kirim struk bukti beserta gambar banner-nya ke PM user pemicu
             if banner_file:
                 await bot.send_file(user_pemicu, file=banner_file, caption=teks_bukti, parse_mode='md')
             else:
@@ -132,17 +126,14 @@ async def del_partner(event):
         except:
             pass
 
-        # Menandakan pekerjaan ini selesai diproses
         tagall_queue.task_done()
-
-        # Jalankan fungsi pembersihan berkas sampah di background agar tidak mengunci antrean selanjutnya
         asyncio.create_task(clean_messages_delayed(sent_message_ids))
 
     is_processing = False
 
 # Fungsi internal untuk membersihkan pesan grup setelah delay 5 menit
 async def clean_messages_delayed(message_ids):
-    await asyncio.sleep(300) # Tunggu 5 menit (300 detik)
+    await asyncio.sleep(300)
     try:
         await bot.delete_messages(TARGET_GROUP_ID, message_ids)
         await bot.send_message(OWNER_ID, f"🧹 **AUTO CLEAN BERHASIL:** Sebanyak {len(message_ids)} pesan sampah tagall di grup target telah dibersihkan tanpa sisa!")
@@ -157,7 +148,6 @@ async def handle_public_auto_tagall(event):
 
     user_pemicu = event.sender_id
 
-    # Pindai tautan di dalam teks promosi
     urls = re.findall(r'(https?://\S+|t\.me/\S+)', event.text)
     if not urls:
         await event.respond("❌ Pesan ditolak! Teks tidak mengandung tautan partner.")
@@ -176,3 +166,18 @@ async def handle_public_auto_tagall(event):
         await event.respond("❌ **PROSES DITOLAK!** Link Partner di dalam teks ini tidak terdaftar di sistem.")
         return
 
+    posisi_antrian = tagall_queue.qsize()
+
+    await tagall_queue.put({
+        'user_pemicu': user_pemicu,
+        'pesan_teks': event.text,
+        'link_mitra': link_terverifikasi
+    })
+
+    if is_processing:
+        await event.respond(f"⏳ **LINK VALID & MASUK ANTRIAN!**\nSaat ini bot sedang memproses tagall orang lain. Anda berada di **Antrian Ke-{posisi_antrian + 1}**. Bot akan otomatis memberi tahu saat giliran Anda dimulai!")
+    else:
+        await event.respond("✅ **LINK TERVERIFIKASI!** 🚀 Menyiapkan peluncuran bot...")
+        asyncio.create_task(process_queue())
+
+bot.run_until_disconnected()
