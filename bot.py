@@ -3,6 +3,7 @@ import asyncio
 import time
 import json
 import re
+import random
 from datetime import datetime
 from telethon import TelegramClient, events
 
@@ -22,6 +23,13 @@ FILE_DB = "partners_database.json"
 tagall_queue = asyncio.Queue()
 is_processing = False
 
+EMOJIS = [
+    "👑", "🔥", "⭐", "🚀", "💎", "✨", "🎯", "⚡", "🔮", "🍕", 
+    "🍃", "🪐", "🎈", "🎉", "🎐", "🍭", "👾", "🧸", "🦊", "🐼", 
+    "🐸", "🦄", "🍀", "🍒", "🍇", "🥑", "🎀", "🔑", "🛡️", "🧬",
+    "🛸", "🍿", "🎵", "🎸", "🎲", "🎰", "🗽", "🗼", "🏰", "🌊"
+]
+
 def load_partners():
     if os.path.exists(FILE_DB):
         try:
@@ -38,46 +46,49 @@ print("⚡ Bot Resmi Auto-Tagall Antrian + Sistem Log Privat Siap!")
 @bot.on(events.NewMessage(pattern=r'(?i)^/addpartner(.*)'))
 async def add_partner(event):
     global PARTNERS_LIST
-    if event.sender_id != OWNER_ID or not event.is_private: return
-    link_baru = event.pattern_match.group(1).strip()
-    if not link_baru or not link_baru.startswith(("http://", "https://", "t.me/")):
-        await event.respond("⚠️ Format salah! Gunakan:\n`/addpartner https://t.me/linkkamu`")
-        return
-    if link_baru in PARTNERS_LIST:
-        await event.respond("⚠️ Link sudah terdaftar.")
-        return
-    PARTNERS_LIST.append(link_baru)
-    save_partners(PARTNERS_LIST)
-    await event.respond(f"✅ Partner Ditambahkan! Total: {len(PARTNERS_LIST)}")
+    if event.is_private or event.chat_id == LOG_GROUP_ID:
+        if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
+        link_baru = event.pattern_match.group(1).strip()
+        if not link_baru or not link_baru.startswith(("http://", "https://", "t.me/")):
+            await event.respond("⚠️ Format salah! Gunakan:\n`/addpartner https://t.me`")
+            return
+        if link_baru in PARTNERS_LIST:
+            await event.respond("⚠️ Link sudah terdaftar.")
+            return
+        PARTNERS_LIST.append(link_baru)
+        save_partners(PARTNERS_LIST)
+        await event.respond(f"✅ Partner Ditambahkan! Total: {len(PARTNERS_LIST)}")
 
 @bot.on(events.NewMessage(pattern=r'(?i)^/delpartner(.*)'))
 async def del_partner(event):
     global PARTNERS_LIST
-    if event.sender_id != OWNER_ID or not event.is_private: return
-    input_admin = event.pattern_match.group(1).strip()
-    if not input_admin: return
+    if event.is_private or event.chat_id == LOG_GROUP_ID:
+        if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
+        input_admin = event.pattern_match.group(1).strip()
+        if not input_admin: return
 
-    if input_admin.isdigit():
-        indeks = int(input_admin) - 1
-        if 0 <= indeks < len(PARTNERS_LIST):
-            terhapus = PARTNERS_LIST.pop(indeks)
-            save_partners(PARTNERS_LIST)
-            await event.respond(f"🗑️ Partner nomor {input_admin} ({terhapus}) telah dihapus.")
-    else:
-        if input_admin in PARTNERS_LIST:
-            PARTNERS_LIST.remove(input_admin)
-            save_partners(PARTNERS_LIST)
-            await event.respond(f"🗑️ Link {input_admin} telah dihapus.")
+        if input_admin.isdigit():
+            indeks = int(input_admin) - 1
+            if 0 <= indeks < len(PARTNERS_LIST):
+                terhapus = PARTNERS_LIST.pop(indeks)
+                save_partners(PARTNERS_LIST)
+                await event.respond(f"🗑️ Partner nomor {input_admin} ({terhapus}) telah dihapus.")
+        else:
+            if input_admin in PARTNERS_LIST:
+                PARTNERS_LIST.remove(input_admin)
+                save_partners(PARTNERS_LIST)
+                await event.respond(f"🗑️ Link {input_admin} telah dihapus.")
 
 @bot.on(events.NewMessage(pattern=r'(?i)^/listpartner'))
 async def list_partner(event):
-    if event.sender_id != OWNER_ID or not event.is_private: return
-    if not PARTNERS_LIST:
-        await event.respond("📂 Database Kosong.")
-        return
-    teks_list = "📋 **DAFTAR PARTNER AKTIF**\n━━━━━━━━━━━━━━━━━━━━\n"
-    for i, link in enumerate(PARTNERS_LIST, start=1): teks_list += f"{i}. {link}\n"
-    await event.respond(teks_list, link_preview=False)
+    if event.is_private or event.chat_id == LOG_GROUP_ID:
+        if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
+        if not PARTNERS_LIST:
+            await event.respond("📂 Database Kosong.")
+            return
+        teks_list = "📋 **DAFTAR PARTNER AKTIF**\n━━━━━━━━━━━━━━━━━━━━\n"
+        for i, link in enumerate(PARTNERS_LIST, start=1): teks_list += f"{i}. {link}\n"
+        await event.respond(teks_list, link_preview=False)
 
 async def process_queue():
     global is_processing
@@ -136,8 +147,8 @@ async def process_queue():
         try:
             async for user in bot.iter_participants(TARGET_GROUP_ID):
                 if not user.bot:
-                    name = user.first_name if user.first_name else "Members"
-                    mentions.append(f"[{name}](tg://user?id={user.id})")
+                    emoji_acak = random.choice(EMOJIS)
+                    mentions.append(f"[{emoji_acak}](tg://user?id={user.id})")
         except:
             pass
 
@@ -158,7 +169,7 @@ async def process_queue():
                 waktu_habis = True
                 break
 
-            teks_tag = f"{pesan_teks}\n\n📢 **OPIUM TAGALL**\n⭐ **SVBLVNE X DRAGSPIN** ⭐\n━━━━━━━━━━━━━━━━━━━━\n🔗 {', '.join(chunk)}"
+            teks_tag = f"{pesan_teks}\n\n" + " ".join(chunk)
             try:
                 msg = await bot.send_message(TARGET_GROUP_ID, teks_tag, parse_mode='md')
                 sent_message_ids.append(msg.id)
@@ -248,47 +259,4 @@ async def clean_messages_delayed(message_ids):
 
 @bot.on(events.NewMessage(incoming=True))
 async def handle_public_auto_tagall(event):
-    if not event.is_private or event.text.startswith("/"):
-        return
-
-    user_pemicu = event.sender_id
-    
-    sender = await event.get_sender()
-    user_name_alias = sender.first_name if sender.first_name else "Tanpa Nama"
-    user_username = sender.username if sender.username else "tidak_ada"
-
-    urls = re.findall(r'(https?://\S+|t\.me/\S+)', event.text)
-    if not urls:
-        await event.respond("❌ Pesan ditolak! Teks tidak mengandung tautan partner.")
-        return
-
-    link_ditemukan = False
-    link_terverifikasi = ""
-    for url in urls:
-        clean_url = url.strip().rstrip(".,;)")
-        if clean_url in PARTNERS_LIST:
-            link_ditemukan = True
-            link_terverifikasi = clean_url
-            break
-            
-    if not link_ditemukan:
-        await event.respond("❌ **PROSES DITOLAK!** Link Partner di dalam teks ini tidak terdaftar di sistem.")
-        return
-
-    posisi_antrian = tagall_queue.qsize()
-
-    await tagall_queue.put({
-        'user_pemicu': user_pemicu,
-        'pesan_teks': event.text,
-        'link_mitra': link_terverifikasi,
-        'user_name_alias': user_name_alias,
-        'user_username': user_username
-    })
-
-    if is_processing:
-        await event.respond(f"⏳ **LINK VALID & MASUK ANTRIAN!**\nSaat ini bot sedang memproses tagall orang lain. Anda berada di **Antrian Ke-{posisi_antrian + 1}**. Bot akan otomatis memberi tahu saat giliran Anda dimulai!")
-    else:
-        await event.respond("✅ **LINK TERVERIFIKASI!** 🚀 Menyiapkan peluncuran bot...")
-        asyncio.create_task(process_queue())
-
-bot.run_until_disconnected()
+if not event.is_private or event.text.startswith("/"):returnuser_pemicu = event.sender_idsender = await event.get_sender()user_name_alias = sender.first_name if sender.first_name else "Tanpa Nama"user_username = sender.username if sender.username else "tidak_ada"urls = re.findall(r'(https?://\S+|t.me/\S+)', event.text)if not urls:await event.respond("❌ Pesan ditolak! Teks tidak mengandung tautan partner.")returnlink_ditemukan = Falselink_terverifikasi = ""for url in urls:clean_url = url.strip().rstrip(".,;)")if clean_url in PARTNERS_LIST:link_ditemukan = Truelink_terverifikasi = clean_urlbreakif not link_ditemukan:await event.respond("❌ PROSES DITOLAK! Link Partner di dalam teks ini tidak terdaftar di sistem.")returnposisi_antrian = tagall_queue.qsize()await tagall_queue.put({'user_pemicu': user_pemicu,'pesan_teks': event.text,'link_mitra': link_terverifikasi,'user_name_alias': user_name_alias,'user_username': user_username})if is_processing:await event.respond(f"⏳ LINK VALID & MASUK ANTRIAN!\nSaat ini bot sedang memproses tagall orang lain. Anda berada di Antrian Ke-{posisi_antrian + 1}. Bot akan otomatis memberi tahu saat giliran Anda dimulai!")else:await event.respond("✅ LINK TERVERIFIKASI! 🚀 Menyiapkan peluncuran bot...")asyncio.create_task(process_queue())bot.run_until_disconnected()
