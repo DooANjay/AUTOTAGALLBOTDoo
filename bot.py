@@ -20,6 +20,10 @@ is_processing = False
 
 EMOJIS = ["👑","🔥","⭐","🚀","💎","✨","🎯","⚡","🔮","🍕","🍃","🪐","🎈","🎉","🎐","🍭","👾","🧸","🦊","🐼","🐸","🦄","🍀","🍒","🍇","🥑","🎀","🔑","🛡️","🧬","🛸","🍿","🎵","🎸","🎲","🎰","🗽","🗼","🏰","🌊"]
 
+L_START = ">📝 **Tagall Dimulai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Nama :** {}\n>🆔 **Username :** @{}\n>🔢 **ID :** `{}`\n>⏰ **Jam :** {}\n>🤝 **Link :** {}\n>💬 **Pesan :** \n>{}\n>━━━━━━━━━━━━━━━━━━━━"
+L_DONE = ">🟢 **Tagall Selesai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Pengirim :** {}\n>🤝 **Link :** {}\n>⏳ **Durasi :** {}\n>⏰ **Waktu Selesai :** {}\n>💬 **Pesan :** \n>{}\n>━━━━━━━━━━━━━━━━━━━━"
+L_STRUK = ">━━━━━━━━━━━━━━━━━━━━\n>**TAGALL SELESAI**\n>━━━━━━━━━━━━━━━━━━━━\n>📆 **TANGGAL :** `{}`\n>🏰 **GROUP :** **{}**\n>🤝 **PARTNER :** {} ({})\n>📩 **TERKIRIM :** `{}`\n>⏳ **DURASI :** `{}`\n>━━━━━━━━━━━━━━━━━━━━\n>**teruskan pesan ini sebagai bukti!!!**"
+
 def load_partners():
     if os.path.exists(FILE_DB):
         try:
@@ -39,14 +43,14 @@ async def add_partner(event):
     if not event.is_private and event.chat_id != LOG_GROUP_ID: return
     if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
     inp = event.pattern_match.group(1).strip()
-    if " - " not in inp: return await event.respond("⚠️ Format salah! Gunakan:\n`/addpartner NAMA GRUP - LINK` \n\nContoh:\n`/addpartner SWEET VELUNE - https://t.me`")
+    if " - " not in inp: return await event.respond("⚠️ Format salah! Gunakan NAMA - LINK")
     nama_grup, link_baru = inp.split(" - ", 1)
     nama_grup, link_baru = nama_grup.strip(), link_baru.strip()
     if not link_baru.startswith(("http", "t.me")): return await event.respond("⚠️ Link tidak valid!")
-    if link_baru in PARTNERS_DICT: return await event.respond("⚠️ Link partner sudah ada di database!")
+    if link_baru in PARTNERS_DICT: return await event.respond("⚠️ Sudah ada!")
     PARTNERS_DICT[link_baru] = nama_grup
     save_partners(PARTNERS_DICT)
-    await event.respond(f"✅ **Berhasil Ditambahkan!**\nGrup: {nama_grup}\nLink: {link_baru}")
+    await event.respond("✅ Berhasil ditambah!")
 
 @bot.on(events.NewMessage(pattern=r'(?i)^/delpartner(.*)'))
 async def del_partner(event):
@@ -58,18 +62,7 @@ async def del_partner(event):
     keys = list(PARTNERS_DICT.keys())
     if inp.isdigit():
         idx = int(inp) - 1
-        if 0 📝 **Tagall Dimulai**\n"
-            f">━━━━━━━━━━━━━━━━━━━━\n"
-            f">👤 **Nama :** {nama}\n"
-            f">🆔 **Username :** @{user}\n"
-            f">🔢 **ID :** `{pemicu}`\n"
-            f">⏰ **Jam :** {waktu_mulai_log}\n"
-            f">🤝 **Link :** {mitra}\n"
-            f">💬 **Pesan :** \n>{teks.replace('\n', '\n>')}\n"
-            f">━━━━━━━━━━━━━━━━━━━━"
-        )
-        try:
-            await bot.send_message(LOG_GROUP_ID, log_mulai_teks, parse_mode='md', link_preview=False)
+        if 0 ')), parse_mode='md', link_preview=False)
         except: pass
 
         mentions = []
@@ -85,7 +78,8 @@ async def del_partner(event):
         l_sent = False
         w_habis = False
         for chunk in chunks:
-            if int(time.time() - t_start) not in range(0, 300):
+            selisih = int(time.time() - t_start)
+            if selisih not in range(0, 300):
                 w_habis = True
                 break
             try:
@@ -93,7 +87,7 @@ async def del_partner(event):
                 ids.append(m_tag.id)
             except: pass
             await asyncio.sleep(3.5)
-            if int(time.time() - t_start) not in range(0, 60) and not l_sent:
+            if selisih not in range(0, 60) and not l_sent:
                 try:
                     await bot.send_message(pemicu, "📊 **BERJALAN 1 MENIT!**")
                     l_sent = True
@@ -106,35 +100,14 @@ async def del_partner(event):
             ids.append(s_msg.id)
         except: pass
 
-        waktu_selesai_log = datetime.now().strftime("%H:%M:%S WIB")
-        log_selesai_teks = (
-            f">🟢 **Tagall Selesai**\n"
-            f">━━━━━━━━━━━━━━━━━━━━\n"
-            f">👤 **Pengirim :** {nama}\n"
-            f">🤝 **Link :** {mitra}\n"
-            f">⏳ **Durasi :** {t_txt}\n"
-            f">⏰ **Waktu Selesai :** {waktu_selesai_log}\n"
-            f">💬 **Pesan :** \n>{teks.replace('\n', '\n>')}\n"
-            f">━━━━━━━━━━━━━━━━━━━━"
-        )
+        w_end = datetime.now().strftime("%H:%M:%S WIB")
         try:
-            await bot.send_message(LOG_GROUP_ID, log_selesai_teks, parse_mode='md', link_preview=False)
+            await bot.send_message(LOG_GROUP_ID, L_DONE.format(nama, mitra, t_txt, w_end, teks.replace('\n', '\n>')), parse_mode='md', link_preview=False)
         except: pass
 
-        bukti = (
-            f">━━━━━━━━━━━━━━━━━━━━\n"
-            f">**TAGALL SELESAI**\n"
-            f">━━━━━━━━━━━━━━━━━━━━\n"
-            f">📆 **TANGGAL :** `{datetime.now().strftime('%d-%m-%Y %H:%M')}`\n"
-            f">🏰 **GROUP :** **{chat.title}**\n"
-            f">🤝 **PARTNER :** {nama_pt} ({mitra})\n"
-            f">📩 **TERKIRIM :** `{len(mentions)}`\n"
-            f">⏳ **DURASI :** `{d_txt}`\n"
-            f">━━━━━━━━━━━━━━━━━━━━\n"
-            f">**teruskan pesan ini sebagai bukti!!!**"
-        )
+        t_now = datetime.now().strftime('%d-%m-%Y %H:%M')
         try:
-            await bot.send_message(pemicu, bukti, parse_mode='md', link_preview=False)
+            await bot.send_message(pemicu, L_STRUK.format(t_now, chat.title, nama_pt, mitra, len(mentions), d_txt), parse_mode='md', link_preview=False)
         except: pass
         
         tagall_queue.task_done()
@@ -172,3 +145,4 @@ async def handle_public_auto_tagall(event):
         asyncio.create_task(process_queue())
 
 bot.run_until_disconnected()
+
