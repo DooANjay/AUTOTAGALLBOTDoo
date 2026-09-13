@@ -20,6 +20,20 @@ is_processing = False
 
 EMOJIS = ["👑","🔥","⭐","🚀","💎","✨","🎯","⚡","🔮","🍕","🍃","🪐","🎈","🎉","🎐","🍭","👾","🧸","🦊","🐼","🐸","🦄","🍀","🍒","🍇","🥑","🎀","🔑","🛡️","🧬","🛸","🍿","🎵","🎸","🎲","🎰","🗽","🗼","🏰","🌊"]
 
+def build_log_start(a, b, c, d, e, f):
+    clean_f = f.replace('\n', '\n>')
+    res = f">📝 **Tagall Dimulai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Nama :** {a}\n>🆔 **Username :** @{b}\n>🔢 **ID :** `{c}`\n>⏰ **Jam :** {d}\n>🤝 **Link :** {e}\n>💬 **Pesan :** \n>{clean_f}\n>━━━━━━━━━━━━━━━━━━━━"
+    return res
+
+def build_log_done(a, b, c, d, e):
+    clean_e = e.replace('\n', '\n>')
+    res = f">🟢 **Tagall Selesai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Pengirim :** {a}\n>🤝 **Link :** {b}\n>⏳ **Durasi :** {c}\n>⏰ **Waktu Selesai :** {d}\n>💬 **Pesan :** \n>{clean_e}\n>━━━━━━━━━━━━━━━━━━━━"
+    return res
+
+def build_struk(a, b, c, d, e, f):
+    res = f">━━━━━━━━━━━━━━━━━━━━\n>**TAGALL SELESAI**\n>━━━━━━━━━━━━━━━━━━━━\n>📆 **TANGGAL :** `{a}`\n>🏰 **GROUP :** **{b}**\n>🤝 **PARTNER :** {c} ({d})\n>📩 **TERKIRIM :** `{e}`\n>⏳ **DURASI :** `{f}`\n>━━━━━━━━━━━━━━━━━━━━\n>**teruskan pesan ini sebagai bukti!!!**"
+    return res
+
 def load_partners():
     if os.path.exists(FILE_DB):
         try:
@@ -58,8 +72,44 @@ async def del_partner(event):
     keys = list(PARTNERS_DICT.keys())
     if inp.isdigit():
         idx = int(inp) - 1
-        if 0 ')
-        log_start = f">📝 **Tagall Dimulai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Nama :** {nama}\n>🆔 **Username :** @{user}\n>🔢 **ID :** `{pemicu}`\n>⏰ **Jam :** {w_start}\n>🤝 **Link :** {mitra}\n>💬 **Pesan :** \n>{t_clean}\n>━━━━━━━━━━━━━━━━━━━━"
+        if 0 <= idx < len(keys):
+            del PARTNERS_DICT[keys[idx]]
+            save_partners(PARTNERS_DICT)
+            await event.respond("🗑️ Dihapus!")
+    else:
+        if inp in PARTNERS_DICT:
+            del PARTNERS_DICT[inp]
+            save_partners(PARTNERS_DICT)
+            await event.respond("🗑️ Dihapus!")
+
+@bot.on(events.NewMessage(pattern=r'(?i)^/listpartner'))
+async def list_partner(event):
+    if not event.is_private and event.chat_id != LOG_GROUP_ID: return
+    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
+    if not PARTNERS_DICT: return await event.respond("📂 Kosong!")
+    txt = "📋 **PARTNER AKTIF:**\n"
+    for i, (l, n) in enumerate(PARTNERS_DICT.items(), start=1): txt += f"{i}. {n.upper()} - {l}\n"
+    await event.respond(txt, link_preview=False)
+
+async def process_queue():
+    global is_processing
+    is_processing = True
+    while not tagall_queue.empty():
+        task = await tagall_queue.get()
+        pemicu, teks, mitra, nama_pt, nama, user = task['p'], task['t'], task['m'], task['pt'], task['n'], task['u']
+        try:
+            await bot.send_message(pemicu, "🚀 **GILIRAN ANDA DIMULAI!**")
+        except: pass
+        try:
+            chat = await bot.get_entity(TARGET_GROUP_ID)
+            i_msg = await bot.send_message(TARGET_GROUP_ID, f"🚀 **TAGALL DIMULAI**\n👥 **GROUP:** {chat.title}", link_preview=False)
+            ids = [i_msg.id]
+        except:
+            tagall_queue.task_done()
+            continue
+        
+        w_start = datetime.now().strftime("%H:%M:%S WIB")
+        log_start = build_log_start(nama, user, pemicu, w_start, mitra, teks)
         try:
             await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='md', link_preview=False)
         except: pass
@@ -100,13 +150,13 @@ async def del_partner(event):
         except: pass
 
         w_end = datetime.now().strftime("%H:%M:%S WIB")
-        log_done = f">🟢 **Tagall Selesai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Pengirim :** {nama}\n>🤝 **Link :** {mitra}\n>⏳ **Durasi :** {t_txt}\n>⏰ **Waktu Selesai :** {w_end}\n>💬 **Pesan :** \n>{t_clean}\n>━━━━━━━━━━━━━━━━━━━━"
+        log_done = build_log_done(nama, mitra, t_txt, w_end, teks)
         try:
             await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='md', link_preview=False)
         except: pass
 
         t_now = datetime.now().strftime('%d-%m-%Y %H:%M')
-        struk = f">━━━━━━━━━━━━━━━━━━━━\n>**TAGALL SELESAI**\n>━━━━━━━━━━━━━━━━━━━━\n>📆 **TANGGAL :** `{t_now}`\n>🏰 **GROUP :** **{chat.title}**\n>🤝 **PARTNER :** {nama_pt} ({mitra})\n>📩 **TERKIRIM :** `{len(mentions)}`\n>⏳ **DURASI :** `{d_txt}`\n>━━━━━━━━━━━━━━━━━━━━\n>**teruskan pesan ini sebagai bukti!!!**"
+        struk = build_struk(t_now, chat.title, nama_pt, mitra, len(mentions), d_txt)
         try:
             await bot.send_message(pemicu, struk, parse_mode='md', link_preview=False)
         except: pass
@@ -146,4 +196,5 @@ async def handle_public_auto_tagall(event):
         asyncio.create_task(process_queue())
 
 bot.run_until_disconnected()
+
 
