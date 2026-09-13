@@ -12,8 +12,9 @@ try:
     BOT_TOKEN = os.environ.get("BOT_TOKEN")
     OWNER_ID = int(os.environ.get("OWNER_ID"))
     TARGET_GROUP_ID = int(os.environ.get("TARGET_GROUP_ID"))
+    LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID"))
 except (TypeError, ValueError):
-    print("❌ ERROR: Pastikan semua variabel sudah diisi dengan benar di Railway!")
+    print("❌ ERROR: Pastikan semua variabel termasuk LOG_GROUP_ID sudah diisi di Railway!")
     exit(1)
 
 bot = TelegramClient('bot_official_session', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
@@ -32,7 +33,7 @@ def save_partners(data):
     with open(FILE_DB, "w") as f: json.dump(data, f, indent=4)
 
 PARTNERS_LIST = load_partners()
-print("⚡ Bot Resmi Auto-Tagall Antrian + Laporan Banner Siap!")
+print("⚡ Bot Resmi Auto-Tagall Antrian + Sistem Log Privat Siap!")
 
 @bot.on(events.NewMessage(pattern=r'(?i)^/addpartner(.*)'))
 async def add_partner(event):
@@ -40,7 +41,7 @@ async def add_partner(event):
     if event.sender_id != OWNER_ID or not event.is_private: return
     link_baru = event.pattern_match.group(1).strip()
     if not link_baru or not link_baru.startswith(("http://", "https://", "t.me/")):
-        await event.respond("⚠️ Format salah! Gunakan:\n`/addpartner https://t.me`")
+        await event.respond("⚠️ Format salah! Gunakan:\n`/addpartner https://t.me/linkkamu`")
         return
     if link_baru in PARTNERS_LIST:
         await event.respond("⚠️ Link sudah terdaftar.")
@@ -87,9 +88,28 @@ async def process_queue():
         user_pemicu = task['user_pemicu']
         pesan_teks = task['pesan_teks']
         link_mitra = task['link_mitra']
+        user_name_alias = task['user_name_alias']
+        user_username = task['user_username']
         
         try:
             await bot.send_message(user_pemicu, "🚀 **GILIRAN ANDA DIMULAI!** Bot sekarang sedang meluncurkan tagall untuk pesan Anda di grup target.")
+        except:
+            pass
+
+        waktu_mulai_log = datetime.now().strftime("%H:%M:%S WIB")
+        log_mulai_teks = (
+            "📝 **Tagall Dimulai**\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 **Nama :** {user_name_alias}\n"
+            f"🆔 **Username :** @{user_username}\n"
+            f"🔢 **ID :** `{user_pemicu}`\n"
+            f"⏰ **Jam :** {waktu_mulai_log}\n"
+            f"🤝 **Link :** {link_mitra}\n"
+            f"💬 **Pesan :** \n{pesan_teks}\n"
+            "━━━━━━━━━━━━━━━━━━━━"
+        )
+        try:
+            await bot.send_message(LOG_GROUP_ID, log_mulai_teks, link_preview=False)
         except:
             pass
 
@@ -160,17 +180,35 @@ async def process_queue():
         durasi_menit = round((end_time - start_time) / 60)
         durasi_teks = f"{durasi_menit}m" if durasi_menit != 0 else f"{round(end_time - start_time)}s"
         waktu_sekarang = datetime.now().strftime("%d-%m-%Y %H:%M")
+        waktu_selesai_log = datetime.now().strftime("%H:%M:%S WIB")
 
         if waktu_habis:
             status_msg = await bot.send_message(TARGET_GROUP_ID, "⏱️ **Batas waktu 5 menit tercapai!** Semua pesan sampah akan dibersihkan dalam 5 menit...")
+            durasi_teks = "Selesai (Limit 5m)"
         else:
             status_msg = await bot.send_message(TARGET_GROUP_ID, "✅ **Tagall Selesai!** Semua pesan sampah akan dibersihkan dalam 5 menit...")
-        
+            durasi_teks = "Selesai"
+
         sent_message_ids.append(status_msg.id)
 
-        banner_file = None
+        log_selesai_teks = (
+            "🟢 **Tagall Selesai**\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 **Pengirim :** {user_name_alias}\n"
+            f"🤝 **Link :** {link_mitra}\n"
+            f"⏳ **Durasi :** {durasi_teks}\n"
+            f"⏰ **Waktu Selesai :** {waktu_selesai_log}\n"
+            f"💬 **Pesan :** \n{pesan_teks}\n"
+            "━━━━━━━━━━━━━━━━━━━━"
+        )
         try:
-            banner_file = await bot.download_profile_photo(TARGET_GROUP_ID, file=bytes)
+            await bot.send_message(LOG_GROUP_ID, log_selesai_teks, link_preview=False)
+        except:
+            pass
+
+        photo_bytes = None
+        try:
+            photo_bytes = await bot.download_profile_photo(TARGET_GROUP_ID, file=bytes)
         except:
             pass
 
@@ -188,8 +226,8 @@ async def process_queue():
         )
 
         try:
-            if banner_file:
-                await bot.send_file(user_pemicu, file=banner_file, caption=teks_bukti, parse_mode='md')
+            if photo_bytes:
+                await bot.send_file(user_pemicu, file=photo_bytes, caption=teks_bukti, parse_mode='md')
             else:
                 await bot.send_message(user_pemicu, teks_bukti, parse_mode='md', link_preview=False)
         except:
@@ -214,6 +252,10 @@ async def handle_public_auto_tagall(event):
         return
 
     user_pemicu = event.sender_id
+    
+    sender = await event.get_sender()
+    user_name_alias = sender.first_name if sender.first_name else "Tanpa Nama"
+    user_username = sender.username if sender.username else "tidak_ada"
 
     urls = re.findall(r'(https?://\S+|t\.me/\S+)', event.text)
     if not urls:
@@ -238,7 +280,9 @@ async def handle_public_auto_tagall(event):
     await tagall_queue.put({
         'user_pemicu': user_pemicu,
         'pesan_teks': event.text,
-        'link_mitra': link_terverifikasi
+        'link_mitra': link_terverifikasi,
+        'user_name_alias': user_name_alias,
+        'user_username': user_username
     })
 
     if is_processing:
