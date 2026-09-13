@@ -20,10 +20,6 @@ is_processing = False
 
 EMOJIS = ["👑","🔥","⭐","🚀","💎","✨","🎯","⚡","🔮","🍕","🍃","🪐","🎈","🎉","🎐","🍭","👾","🧸","🦊","🐼","🐸","🦄","🍀","🍒","🍇","🥑","🎀","🔑","🛡️","🧬","🛸","🍿","🎵","🎸","🎲","🎰","🗽","🗼","🏰","🌊"]
 
-L_START = ">📝 **Tagall Dimulai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Nama :** {}\n>🆔 **Username :** @{}\n>🔢 **ID :** `{}`\n>⏰ **Jam :** {}\n>🤝 **Link :** {}\n>💬 **Pesan :** \n>{}\n>━━━━━━━━━━━━━━━━━━━━"
-L_DONE = ">🟢 **Tagall Selesai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Pengirim :** {}\n>🤝 **Link :** {}\n>⏳ **Durasi :** {}\n>⏰ **Waktu Selesai :** {}\n>💬 **Pesan :** \n>{}\n>━━━━━━━━━━━━━━━━━━━━"
-L_STRUK = ">━━━━━━━━━━━━━━━━━━━━\n>**TAGALL SELESAI**\n>━━━━━━━━━━━━━━━━━━━━\n>📆 **TANGGAL :** `{}`\n>🏰 **GROUP :** **{}**\n>🤝 **PARTNER :** {} ({})\n>📩 **TERKIRIM :** `{}`\n>⏳ **DURASI :** `{}`\n>━━━━━━━━━━━━━━━━━━━━\n>**teruskan pesan ini sebagai bukti!!!**"
-
 def load_partners():
     if os.path.exists(FILE_DB):
         try:
@@ -62,7 +58,10 @@ async def del_partner(event):
     keys = list(PARTNERS_DICT.keys())
     if inp.isdigit():
         idx = int(inp) - 1
-        if 0 ')), parse_mode='md', link_preview=False)
+        if 0 ')
+        log_start = f">📝 **Tagall Dimulai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Nama :** {nama}\n>🆔 **Username :** @{user}\n>🔢 **ID :** `{pemicu}`\n>⏰ **Jam :** {w_start}\n>🤝 **Link :** {mitra}\n>💬 **Pesan :** \n>{t_clean}\n>━━━━━━━━━━━━━━━━━━━━"
+        try:
+            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='md', link_preview=False)
         except: pass
 
         mentions = []
@@ -101,13 +100,15 @@ async def del_partner(event):
         except: pass
 
         w_end = datetime.now().strftime("%H:%M:%S WIB")
+        log_done = f">🟢 **Tagall Selesai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Pengirim :** {nama}\n>🤝 **Link :** {mitra}\n>⏳ **Durasi :** {t_txt}\n>⏰ **Waktu Selesai :** {w_end}\n>💬 **Pesan :** \n>{t_clean}\n>━━━━━━━━━━━━━━━━━━━━"
         try:
-            await bot.send_message(LOG_GROUP_ID, L_DONE.format(nama, mitra, t_txt, w_end, teks.replace('\n', '\n>')), parse_mode='md', link_preview=False)
+            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='md', link_preview=False)
         except: pass
 
         t_now = datetime.now().strftime('%d-%m-%Y %H:%M')
+        struk = f">━━━━━━━━━━━━━━━━━━━━\n>**TAGALL SELESAI**\n>━━━━━━━━━━━━━━━━━━━━\n>📆 **TANGGAL :** `{t_now}`\n>🏰 **GROUP :** **{chat.title}**\n>🤝 **PARTNER :** {nama_pt} ({mitra})\n>📩 **TERKIRIM :** `{len(mentions)}`\n>⏳ **DURASI :** `{d_txt}`\n>━━━━━━━━━━━━━━━━━━━━\n>**teruskan pesan ini sebagai bukti!!!**"
         try:
-            await bot.send_message(pemicu, L_STRUK.format(t_now, chat.title, nama_pt, mitra, len(mentions), d_txt), parse_mode='md', link_preview=False)
+            await bot.send_message(pemicu, struk, parse_mode='md', link_preview=False)
         except: pass
         
         tagall_queue.task_done()
