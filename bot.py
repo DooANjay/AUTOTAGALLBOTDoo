@@ -1,9 +1,4 @@
-import os
-import asyncio
-import time
-import json
-import re
-import random
+import os, asyncio, time, json, re, random
 from datetime import datetime
 from telethon import TelegramClient, events
 
@@ -15,7 +10,7 @@ try:
     TARGET_GROUP_ID = int(os.environ.get("TARGET_GROUP_ID"))
     LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID"))
 except (TypeError, ValueError):
-    print("❌ ERROR: Pastikan semua variabel termasuk LOG_GROUP_ID sudah diisi di Railway!")
+    print("❌ ERROR: Periksa kembali variabel di Railway!")
     exit(1)
 
 bot = TelegramClient('bot_official_session', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
@@ -23,12 +18,7 @@ FILE_DB = "partners_database.json"
 tagall_queue = asyncio.Queue()
 is_processing = False
 
-EMOJIS = [
-    "👑", "🔥", "⭐", "🚀", "💎", "✨", "🎯", "⚡", "🔮", "🍕", 
-    "🍃", "🪐", "🎈", "🎉", "🎐", "🍭", "👾", "🧸", "🦊", "🐼", 
-    "🐸", "🦄", "🍀", "🍒", "🍇", "🥑", "🎀", "🔑", "🛡️", "🧬",
-    "🛸", "🍿", "🎵", "🎸", "🎲", "🎰", "🗽", "🗼", "🏰", "🌊"
-]
+EMOJIS = ["👑","🔥","⭐","🚀","💎","✨","🎯","⚡","🔮","🍕","🍃","🪐","🎈","🎉","🎐","🍭","👾","🧸","🦊","🐼","🐸","🦄","🍀","🍒","🍇","🥑","🎀","🔑","🛡️","🧬","🛸","🍿","🎵","🎸","🎲","🎰","🗽","🗼","🏰","🌊"]
 
 def load_partners():
     if os.path.exists(FILE_DB):
@@ -41,222 +31,144 @@ def save_partners(data):
     with open(FILE_DB, "w") as f: json.dump(data, f, indent=4)
 
 PARTNERS_LIST = load_partners()
-print("⚡ Bot Resmi Auto-Tagall Antrian + Sistem Log Privat Siap!")
+print("⚡ Bot Siap!")
 
 @bot.on(events.NewMessage(pattern=r'(?i)^/addpartner(.*)'))
 async def add_partner(event):
     global PARTNERS_LIST
-    if event.is_private or event.chat_id == LOG_GROUP_ID:
-        if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
-        link_baru = event.pattern_match.group(1).strip()
-        if not link_baru or not link_baru.startswith(("http://", "https://", "t.me/")):
-            await event.respond("⚠️ Format salah! Gunakan:\n`/addpartner https://t.me`")
-            return
-        if link_baru in PARTNERS_LIST:
-            await event.respond("⚠️ Link sudah terdaftar.")
-            return
-        PARTNERS_LIST.append(link_baru)
-        save_partners(PARTNERS_LIST)
-        await event.respond(f"✅ Partner Ditambahkan! Total: {len(PARTNERS_LIST)}")
+    if not event.is_private and event.chat_id != LOG_GROUP_ID: return
+    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
+    l_baru = event.pattern_match.group(1).strip()
+    if not l_baru or not l_baru.startswith(("http", "t.me")):
+        return await event.respond("⚠️ Gunakan format link yang benar!")
+    if l_baru in PARTNERS_LIST: return await event.respond("⚠️ Sudah ada!")
+    PARTNERS_LIST.append(l_baru)
+    save_partners(PARTNERS_LIST)
+    await event.respond("✅ Berhasil ditambah!")
 
 @bot.on(events.NewMessage(pattern=r'(?i)^/delpartner(.*)'))
 async def del_partner(event):
     global PARTNERS_LIST
-    if event.is_private or event.chat_id == LOG_GROUP_ID:
-        if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
-        input_admin = event.pattern_match.group(1).strip()
-        if not input_admin: return
-
-        if input_admin.isdigit():
-            indeks = int(input_admin) - 1
-            if 0 <= indeks < len(PARTNERS_LIST):
-                terhapus = PARTNERS_LIST.pop(indeks)
-                save_partners(PARTNERS_LIST)
-                await event.respond(f"🗑️ Partner nomor {input_admin} ({terhapus}) telah dihapus.")
-        else:
-            if input_admin in PARTNERS_LIST:
-                PARTNERS_LIST.remove(input_admin)
-                save_partners(PARTNERS_LIST)
-                await event.respond(f"🗑️ Link {input_admin} telah dihapus.")
+    if not event.is_private and event.chat_id != LOG_GROUP_ID: return
+    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
+    inp = event.pattern_match.group(1).strip()
+    if not inp: return
+    if inp.isdigit():
+        idx = int(inp) - 1
+        if 0 <= idx < len(PARTNERS_LIST):
+            PARTNERS_LIST.pop(idx)
+            save_partners(PARTNERS_LIST)
+            await event.respond("🗑️ Dihapus!")
+    else:
+        if inp in PARTNERS_LIST:
+            PARTNERS_LIST.remove(inp)
+            save_partners(PARTNERS_LIST)
+            await event.respond("🗑️ Dihapus!")
 
 @bot.on(events.NewMessage(pattern=r'(?i)^/listpartner'))
 async def list_partner(event):
-    if event.is_private or event.chat_id == LOG_GROUP_ID:
-        if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
-        if not PARTNERS_LIST:
-            await event.respond("📂 Database Kosong.")
-            return
-        teks_list = "📋 **DAFTAR PARTNER AKTIF**\n━━━━━━━━━━━━━━━━━━━━\n"
-        for i, link in enumerate(PARTNERS_LIST, start=1): teks_list += f"{i}. {link}\n"
-        await event.respond(teks_list, link_preview=False)
+    if not event.is_private and event.chat_id != LOG_GROUP_ID: return
+    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
+    if not PARTNERS_LIST: return await event.respond("📂 Kosong!")
+    txt = "📋 **PARTNER AKTIF:**\n"
+    for i, l in enumerate(PARTNERS_LIST, start=1): txt += f"{i}. {l}\n"
+    await event.respond(txt, link_preview=False)
 
 async def process_queue():
     global is_processing
     is_processing = True
-    
     while not tagall_queue.empty():
         task = await tagall_queue.get()
-        user_pemicu = task['user_pemicu']
-        pesan_teks = task['pesan_teks']
-        link_mitra = task['link_mitra']
-        user_name_alias = task['user_name_alias']
-        user_username = task['user_username']
-        
+        pemicu, teks, mitra, nama, user = task['p'], task['t'], task['m'], task['n'], task['u']
         try:
-            await bot.send_message(user_pemicu, "🚀 **GILIRAN ANDA DIMULAI!** Bot sekarang sedang meluncurkan tagall untuk pesan Anda di grup target.")
-        except:
-            pass
-
-        waktu_mulai_log = datetime.now().strftime("%H:%M:%S WIB")
-        log_mulai_teks = (
-            "📝 **Tagall Dimulai**\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            f"👤 **Nama :** {user_name_alias}\n"
-            f"🆔 **Username :** @{user_username}\n"
-            f"🔢 **ID :** `{user_pemicu}`\n"
-            f"⏰ **Jam :** {waktu_mulai_log}\n"
-            f"🤝 **Link :** {link_mitra}\n"
-            f"💬 **Pesan :** \n{pesan_teks}\n"
-            "━━━━━━━━━━━━━━━━━━━━"
-        )
-        try:
-            await bot.send_message(LOG_GROUP_ID, log_mulai_teks, link_preview=False)
-        except:
-            pass
-
-        sent_message_ids = []
-        total_tertag = 0
-
+            await bot.send_message(pemicu, "🚀 **GILIRAN ANDA DIMULAI!**")
+        except: pass
         try:
             chat = await bot.get_entity(TARGET_GROUP_ID)
-            init_msg = await bot.send_message(
-                TARGET_GROUP_ID, 
-                f"🚀 **TAGALL DIMULAI AUTOMATICALLY BY BOT**\n👥 **GROUP :** **{chat.title}**\n⏱️ *Durasi Maksimal: 5 Menit & Auto-Clean Aktif!*", 
-                link_preview=False
-            )
-            sent_message_ids.append(init_msg.id)
-        except Exception as e:
-            try:
-                await bot.send_message(user_pemicu, f"❌ Bot gagal mengirim pesan ke grup target: {e}")
-            except:
-                pass
+            i_msg = await bot.send_message(TARGET_GROUP_ID, f"🚀 **TAGALL DIMULAI**\n👥 **GROUP:** {chat.title}", link_preview=False)
+            ids = [i_msg.id]
+        except:
             tagall_queue.task_done()
             continue
-
+        try:
+            await bot.send_message(LOG_GROUP_ID, f"📝 **Tagall Dimulai**\n👤 {nama} (@{user})\n🤝 {mitra}\n💬 {teks}", link_preview=False)
+        except: pass
         mentions = []
         try:
-            async for user in bot.iter_participants(TARGET_GROUP_ID):
-                if not user.bot:
-                    emoji_acak = random.choice(EMOJIS)
-                    mentions.append(f"[{emoji_acak}](tg://user?id={user.id})")
-        except:
-            pass
-
+            async for u in bot.iter_participants(TARGET_GROUP_ID):
+                if not u.bot: mentions.append(f"[{random.choice(EMOJIS)}](tg://user?id={u.id})")
+        except: pass
         if not mentions:
             tagall_queue.task_done()
             continue
-
-        chunk_size = 5
-        chunks = [mentions[i:i + chunk_size] for i in range(0, len(mentions), chunk_size)]
-        
-        start_time = time.time()
-        laporan_terkirim = False
-        waktu_habis = False
-
+        chunks = [mentions[i:i + 5] for i in range(0, len(mentions), 5)]
+        t_start = time.time()
+        l_sent = False
+        w_habis = False
         for chunk in chunks:
-            selisih = int(time.time() - start_time)
-            if selisih not in range(0, 300):
-                waktu_habis = True
+            if int(time.time() - t_start) not in range(0, 300):
+                w_habis = True
                 break
-
-            teks_tag = f"{pesan_teks}\n\n" + " ".join(chunk)
             try:
-                msg = await bot.send_message(TARGET_GROUP_ID, teks_tag, parse_mode='md')
-                sent_message_ids.append(msg.id)
-                total_tertag += len(chunk)
-            except:
-                pass
-            
+                m_tag = await bot.send_message(TARGET_GROUP_ID, f"{teks}\n\n" + " ".join(chunk), parse_mode='md')
+                ids.append(m_tag.id)
+            except: pass
             await asyncio.sleep(3.5)
-
-            if selisih not in range(0, 60):
-                if not laporan_terkirim:
-                    try:
-                        await bot.send_message(user_pemicu, "📊 **LAPORAN PROGRES AUTO-TAGALL**\n✅ Bot sukses berjalan selama 1 menit di grup.")
-                        laporan_terkirim = True
-                    except:
-                        pass
-
-        end_time = time.time()
-        durasi_menit = round((end_time - start_time) / 60)
-        durasi_teks = f"{durasi_menit}m" if durasi_menit != 0 else f"{round(end_time - start_time)}s"
-        waktu_sekarang = datetime.now().strftime("%d-%m-%Y %H:%M")
-        waktu_selesai_log = datetime.now().strftime("%H:%M:%S WIB")
-
-        if waktu_habis:
-            status_msg = await bot.send_message(TARGET_GROUP_ID, "⏱️ **Batas waktu 5 menit tercapai!** Semua pesan sampah akan dibersihkan dalam 5 menit...")
-            durasi_teks = "Selesai (Limit 5m)"
-        else:
-            status_msg = await bot.send_message(TARGET_GROUP_ID, "✅ **Tagall Selesai!** Semua pesan sampah akan dibersihkan dalam 5 menit...")
-            durasi_teks = "Selesai"
-
-        sent_message_ids.append(status_msg.id)
-
-        log_selesai_teks = (
-            "🟢 **Tagall Selesai**\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            f"👤 **Pengirim :** {user_name_alias}\n"
-            f"🤝 **Link :** {link_mitra}\n"
-            f"⏳ **Durasi :** {durasi_teks}\n"
-            f"⏰ **Waktu Selesai :** {waktu_selesai_log}\n"
-            f"💬 **Pesan :** \n{pesan_teks}\n"
-            "━━━━━━━━━━━━━━━━━━━━"
-        )
+            if int(time.time() - t_start) not in range(0, 60) and not l_sent:
+                try:
+                    await bot.send_message(pemicu, "📊 **BERJALAN 1 MENIT!**")
+                    l_sent = True
+                except: pass
+        durasi = round((time.time() - t_start) / 60)
+        d_txt = f"{durasi}m" if durasi != 0 else f"{round(time.time() - t_start)}s"
+        t_txt = "Selesai (Limit 5m)" if w_habis else "Selesai"
         try:
-            await bot.send_message(LOG_GROUP_ID, log_selesai_teks, link_preview=False)
-        except:
-            pass
-
-        photo_bytes = None
+            s_msg = await bot.send_message(TARGET_GROUP_ID, f"✅ **{t_txt}!** Pesan sampah dihapus dalam 5 menit...")
+            ids.append(s_msg.id)
+        except: pass
         try:
-            photo_bytes = await bot.download_profile_photo(TARGET_GROUP_ID, file=bytes)
-        except:
-            pass
-
-        teks_bukti = (
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            "**TAGALL SELESAI**\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            f"📆 **TANGGAL :** `{waktu_sekarang}`\n"
-            f"🏰 **GROUP :** **{chat.title}**\n"
-            f"🤝 **PARTNER :** {link_mitra}\n"
-            f"📩 **TERKIRIM :** `{total_tertag}`\n"
-            f"⏳ **DURASI :** `{durasi_teks}`\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            "**teruskan pesan ini sebagai bukti!!!**"
-        )
-
+            await bot.send_message(LOG_GROUP_ID, f"🟢 **Tagall Selesai**\n👤 {nama}\n🤝 {mitra}\n⏳ {t_txt}", link_preview=False)
+        except: pass
+        p_bytes = None
         try:
-            if photo_bytes:
-                await bot.send_file(user_pemicu, file=photo_bytes, caption=teks_bukti, parse_mode='md')
-            else:
-                await bot.send_message(user_pemicu, teks_bukti, parse_mode='md', link_preview=False)
-        except:
-            pass
-
+            p_bytes = await bot.download_profile_photo(TARGET_GROUP_ID, file=bytes)
+        except: pass
+        bukti = f"━━━━━━━━━━━━━━━━━━━━\n**TAGALL SELESAI**\n━━━━━━━━━━━━━━━━━━━━\n📆 **TANGGAL :** `{datetime.now().strftime('%d-%m-%Y %H:%M')}`\n🏰 **GROUP :** **{chat.title}**\n🤝 **PARTNER :** {mitra}\n📩 **TERKIRIM :** `{len(mentions)}`\n⏳ **DURASI :** `{d_txt}`\n━━━━━━━━━━━━━━━━━━━━\n**teruskan pesan ini sebagai bukti!!!**"
+        try:
+            if p_bytes: await bot.send_file(pemicu, file=p_bytes, caption=bukti, parse_mode='md')
+            else: await bot.send_message(pemicu, bukti, parse_mode='md', link_preview=False)
+        except: pass
         tagall_queue.task_done()
-        asyncio.create_task(clean_messages_delayed(sent_message_ids))
-
+        asyncio.create_task(clean_delayed(ids))
     is_processing = False
 
-async def clean_messages_delayed(message_ids):
+async def clean_delayed(ids):
     await asyncio.sleep(300)
     try:
-        await bot.delete_messages(TARGET_GROUP_ID, message_ids)
-        await bot.send_message(OWNER_ID, f"🧹 **AUTO CLEAN BERHASIL:** Sebanyak {len(message_ids)} pesan sampah tagall di grup target telah dibersihkan tanpa sisa!")
-    except Exception as e:
-        print(f"Gagal melakukan auto-clean pesan grup: {e}")
+        await bot.delete_messages(TARGET_GROUP_ID, ids)
+        await bot.send_message(OWNER_ID, f"🧹 **BERSIH:** {len(ids)} pesan dihapus!")
+    except: pass
 
 @bot.on(events.NewMessage(incoming=True))
 async def handle_public_auto_tagall(event):
-if not event.is_private or event.text.startswith("/"):returnuser_pemicu = event.sender_idsender = await event.get_sender()user_name_alias = sender.first_name if sender.first_name else "Tanpa Nama"user_username = sender.username if sender.username else "tidak_ada"urls = re.findall(r'(https?://\S+|t.me/\S+)', event.text)if not urls:await event.respond("❌ Pesan ditolak! Teks tidak mengandung tautan partner.")returnlink_ditemukan = Falselink_terverifikasi = ""for url in urls:clean_url = url.strip().rstrip(".,;)")if clean_url in PARTNERS_LIST:link_ditemukan = Truelink_terverifikasi = clean_urlbreakif not link_ditemukan:await event.respond("❌ PROSES DITOLAK! Link Partner di dalam teks ini tidak terdaftar di sistem.")returnposisi_antrian = tagall_queue.qsize()await tagall_queue.put({'user_pemicu': user_pemicu,'pesan_teks': event.text,'link_mitra': link_terverifikasi,'user_name_alias': user_name_alias,'user_username': user_username})if is_processing:await event.respond(f"⏳ LINK VALID & MASUK ANTRIAN!\nSaat ini bot sedang memproses tagall orang lain. Anda berada di Antrian Ke-{posisi_antrian + 1}. Bot akan otomatis memberi tahu saat giliran Anda dimulai!")else:await event.respond("✅ LINK TERVERIFIKASI! 🚀 Menyiapkan peluncuran bot...")asyncio.create_task(process_queue())bot.run_until_disconnected()
+    if not event.is_private or event.text.startswith("/"): return
+    urls = re.findall(r'(https?://\S+|t\.me/\S+)', event.text)
+    if not urls: return await event.respond("❌ Tidak ada link partner!")
+    v_link = ""
+    for url in urls:
+        clean = url.strip().rstrip(".,;)")
+        if clean in PARTNERS_LIST:
+            v_link = clean
+            break
+    if not v_link: return await event.respond("❌ Link tidak terdaftar!")
+    s = await event.get_sender()
+    n = s.first_name if s.first_name else "User"
+    u = s.username if s.username else "tidak_ada"
+    q_idx = tagall_queue.qsize()
+    await tagall_queue.put({'p': event.sender_id, 't': event.text, 'm': v_link, 'n': n, 'u': u})
+    if is_processing: await event.respond(f"⏳ Masuk antrian ke-{q_idx + 1}!")
+    else:
+        await event.respond("✅ Terverifikasi! Memulai bot...")
+        asyncio.create_task(process_queue())
+
+bot.run_until_disconnected()
