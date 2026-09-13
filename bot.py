@@ -39,7 +39,7 @@ async def add_partner(event):
     if not event.is_private and event.chat_id != LOG_GROUP_ID: return
     if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
     inp = event.pattern_match.group(1).strip()
-    if " - " not in inp: return await event.respond("⚠️ Format salah! Gunakan:\n`/addpartner NAMA GRUP - LINK` \n\nContoh:\n`/addpartner SWEET VELUNE - https://t.me/sweetvelunee`")
+    if " - " not in inp: return await event.respond("⚠️ Format salah! Gunakan:\n`/addpartner NAMA GRUP - LINK` \n\nContoh:\n`/addpartner SWEET VELUNE - https://t.me`")
     nama_grup, link_baru = inp.split(" - ", 1)
     nama_grup, link_baru = nama_grup.strip(), link_baru.strip()
     if not link_baru.startswith(("http", "t.me")): return await event.respond("⚠️ Link tidak valid!")
@@ -58,44 +58,20 @@ async def del_partner(event):
     keys = list(PARTNERS_DICT.keys())
     if inp.isdigit():
         idx = int(inp) - 1
-        if 0 <= idx < len(keys):
-            del PARTNERS_DICT[keys[idx]]
-            save_partners(PARTNERS_DICT)
-            await event.respond("🗑️ Partner berhasil dihapus!")
-    else:
-        if inp in PARTNERS_DICT:
-            del PARTNERS_DICT[inp]
-            save_partners(PARTNERS_DICT)
-            await event.respond("🗑️ Partner berhasil dihapus!")
-
-@bot.on(events.NewMessage(pattern=r'(?i)^/listpartner'))
-async def list_partner(event):
-    if not event.is_private and event.chat_id != LOG_GROUP_ID: return
-    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
-    if not PARTNERS_DICT: return await event.respond("📂 Database Partner Kosong!")
-    txt = "📋 **PARTNER AKTIF:**\n"
-    for i, (l, n) in enumerate(PARTNERS_DICT.items(), start=1): txt += f"{i}. {n.upper()} - {l}\n"
-    await event.respond(txt, link_preview=False)
-
-async def process_queue():
-    global is_processing
-    is_processing = True
-    while not tagall_queue.empty():
-        task = await tagall_queue.get()
-        pemicu, teks, mitra, nama_pt, nama, user = task['p'], task['t'], task['m'], task['pt'], task['n'], task['u']
+        if 0 📝 **Tagall Dimulai**\n"
+            f">━━━━━━━━━━━━━━━━━━━━\n"
+            f">👤 **Nama :** {nama}\n"
+            f">🆔 **Username :** @{user}\n"
+            f">🔢 **ID :** `{pemicu}`\n"
+            f">⏰ **Jam :** {waktu_mulai_log}\n"
+            f">🤝 **Link :** {mitra}\n"
+            f">💬 **Pesan :** \n>{teks.replace('\n', '\n>')}\n"
+            f">━━━━━━━━━━━━━━━━━━━━"
+        )
         try:
-            await bot.send_message(pemicu, "🚀 **GILIRAN ANDA DIMULAI!**")
+            await bot.send_message(LOG_GROUP_ID, log_mulai_teks, parse_mode='md', link_preview=False)
         except: pass
-        try:
-            chat = await bot.get_entity(TARGET_GROUP_ID)
-            i_msg = await bot.send_message(TARGET_GROUP_ID, f"🚀 **TAGALL DIMULAI**\n👥 **GROUP:** {chat.title}", link_preview=False)
-            ids = [i_msg.id]
-        except:
-            tagall_queue.task_done()
-            continue
-        try:
-            await bot.send_message(LOG_GROUP_ID, f"📝 **Tagall Dimulai**\n👤 {nama} (@{user})\n🤝 {nama_pt}\n💬 {teks}", link_preview=False)
-        except: pass
+
         mentions = []
         try:
             async for u in bot.iter_participants(TARGET_GROUP_ID):
@@ -129,18 +105,38 @@ async def process_queue():
             s_msg = await bot.send_message(TARGET_GROUP_ID, f"✅ **{t_txt}!** Pesan sampah dihapus dalam 5 menit...")
             ids.append(s_msg.id)
         except: pass
+
+        waktu_selesai_log = datetime.now().strftime("%H:%M:%S WIB")
+        log_selesai_teks = (
+            f">🟢 **Tagall Selesai**\n"
+            f">━━━━━━━━━━━━━━━━━━━━\n"
+            f">👤 **Pengirim :** {nama}\n"
+            f">🤝 **Link :** {mitra}\n"
+            f">⏳ **Durasi :** {t_txt}\n"
+            f">⏰ **Waktu Selesai :** {waktu_selesai_log}\n"
+            f">💬 **Pesan :** \n>{teks.replace('\n', '\n>')}\n"
+            f">━━━━━━━━━━━━━━━━━━━━"
+        )
         try:
-            await bot.send_message(LOG_GROUP_ID, f"🟢 **Tagall Selesai**\n👤 {nama}\n🤝 {nama_pt}\n⏳ {t_txt}", link_preview=False)
+            await bot.send_message(LOG_GROUP_ID, log_selesai_teks, parse_mode='md', link_preview=False)
         except: pass
-        p_bytes = None
+
+        bukti = (
+            f">━━━━━━━━━━━━━━━━━━━━\n"
+            f">**TAGALL SELESAI**\n"
+            f">━━━━━━━━━━━━━━━━━━━━\n"
+            f">📆 **TANGGAL :** `{datetime.now().strftime('%d-%m-%Y %H:%M')}`\n"
+            f">🏰 **GROUP :** **{chat.title}**\n"
+            f">🤝 **PARTNER :** {nama_pt} ({mitra})\n"
+            f">📩 **TERKIRIM :** `{len(mentions)}`\n"
+            f">⏳ **DURASI :** `{d_txt}`\n"
+            f">━━━━━━━━━━━━━━━━━━━━\n"
+            f">**teruskan pesan ini sebagai bukti!!!**"
+        )
         try:
-            p_bytes = await bot.download_profile_photo(TARGET_GROUP_ID, file=bytes)
+            await bot.send_message(pemicu, bukti, parse_mode='md', link_preview=False)
         except: pass
-        bukti = f"━━━━━━━━━━━━━━━━━━━━\n**TAGALL SELESAI**\n━━━━━━━━━━━━━━━━━━━━\n📆 **TANGGAL :** `{datetime.now().strftime('%d-%m-%Y %H:%M')}`\n🏰 **GROUP :** **{chat.title}**\n🤝 **PARTNER :** {nama_pt} ({mitra})\n📩 **TERKIRIM :** `{len(mentions)}`\n⏳ **DURASI :** `{d_txt}`\n━━━━━━━━━━━━━━━━━━━━\n**teruskan pesan ini sebagai bukti!!!**"
-        try:
-            if p_bytes: await bot.send_file(pemicu, file=p_bytes, caption=bukti, parse_mode='md')
-            else: await bot.send_message(pemicu, bukti, parse_mode='md', link_preview=False)
-        except: pass
+        
         tagall_queue.task_done()
         asyncio.create_task(clean_delayed(ids))
     is_processing = False
@@ -176,4 +172,3 @@ async def handle_public_auto_tagall(event):
         asyncio.create_task(process_queue())
 
 bot.run_until_disconnected()
-
