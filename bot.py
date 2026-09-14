@@ -30,11 +30,11 @@ def build_log_done(a, b, c, d, e):
     res = f">🟢 **Tagall Selesai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Pengirim :** {a}\n>🤝 **Link :** {b}\n>⏳ **Durasi :** {c}\n>⏰ **Waktu Selesai :** {d}\n>💬 **Pesan :** \n>{clean_e}\n>━━━━━━━━━━━━━━━━━━━━"
     return res
 
-def build_struk(partner_name, link, member_count):
+def build_struk(sender_name, link, member_count):
     res = (
         "✨ ✅ **Tagall selesai!**\n\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        f"Partner: {partner_name.upper()}\n"
+        f"Partner: {sender_name}\n"
         f"Link: {link}\n"
         f"Member di-tag: {member_count}\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -169,7 +169,7 @@ async def process_queue():
         clean_group_id = str(TARGET_GROUP_ID).replace('-100', '')
         link_ke_grup_anda = f"https://t.me{clean_group_id}/{first_tag_id}" if first_tag_id else mitra
         
-        struk = build_struk(nama_pt, mitra, len(mentions))
+        struk = build_struk(nama, mitra, len(mentions))
         try:
             await bot.send_message(
                 pemicu, 
