@@ -17,6 +17,7 @@ bot = TelegramClient('bot_official_session', API_ID, API_HASH).start(bot_token=B
 FILE_DB = "partners_database.json"
 tagall_queue = asyncio.Queue()
 is_processing = False
+stop_current_tagall = False
 
 EMOJIS = ["👑","🔥","⭐","🚀","💎","✨","🎯","⚡","🔮","🍕","🍃","🪐","🎈","🎉","🎐","🍭","👾","🧸","🦊","🐼","🐸","🦄","🍀","🍒","🍇","🥑","🎀","🔑","🛡️","🧬","🛸","🍿","🎵","🎸","🎲","🎰","🗽","🗼","🏰","🌊"]
 
@@ -30,11 +31,12 @@ def build_log_done(a, b, c, d, e):
     res = f">🟢 **Tagall Selesai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Pengirim :** {a}\n>🤝 **Link :** {b}\n>⏳ **Durasi :** {c}\n>⏰ **Waktu Selesai :** {d}\n>💬 **Pesan :** \n>{clean_e}\n>━━━━━━━━━━━━━━━━━━━━"
     return res
 
-def build_struk(sender_name, link, member_count):
+def build_struk(sender_name, partner_name, link, member_count):
     res = (
         "✨ ✅ **Tagall selesai!**\n\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        f"Partner: {sender_name}\n"
+        f"Pengirim: {sender_name}\n"
+        f"Partner: {partner_name.upper()}\n"
         f"Link: {link}\n"
         f"Member di-tag: {member_count}\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -55,13 +57,13 @@ def save_partners(data):
 PARTNERS_DICT = load_partners()
 print("⚡ Bot Siap!")
 
-@bot.on(events.NewMessage(pattern=r'(?i)^/addpartner(.*)'))
+@bot.on(events.NewMessage(pattern=r'(?i)^/addpt(.*)'))
 async def add_partner(event):
     global PARTNERS_DICT
     if not event.is_private and event.chat_id != LOG_GROUP_ID: return
     if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
     inp = event.pattern_match.group(1).strip()
-    if " - " not in inp: return await event.respond("⚠️ Format salah! Gunakan NAMA - LINK")
+    if " - " not in inp: return await event.respond("⚠️ Format salah! Gunakan: /addpt NAMA - LINK")
     nama_grup, link_baru = inp.split(" - ", 1)
     nama_grup, link_baru = nama_grup.strip(), link_baru.strip()
     if not link_baru.startswith(("http", "t.me")): return await event.respond("⚠️ Link tidak valid!")
@@ -70,7 +72,7 @@ async def add_partner(event):
     save_partners(PARTNERS_DICT)
     await event.respond("✅ Berhasil ditambah!")
 
-@bot.on(events.NewMessage(pattern=r'(?i)^/delpartner(.*)'))
+@bot.on(events.NewMessage(pattern=r'(?i)^/delpt(.*)'))
 async def del_partner(event):
     global PARTNERS_DICT
     if not event.is_private and event.chat_id != LOG_GROUP_ID: return
@@ -90,25 +92,60 @@ async def del_partner(event):
             save_partners(PARTNERS_DICT)
             await event.respond("🗑️ Dihapus!")
 
-@bot.on(events.NewMessage(pattern=r'(?i)^/listpartner'))
+@bot.on(events.NewMessage(pattern=r'(?i)^/lpt'))
 async def list_partner(event):
     if not event.is_private and event.chat_id != LOG_GROUP_ID: return
     if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
     if not PARTNERS_DICT: return await event.respond("📂 Kosong!")
     txt = "📋 **PARTNER AKTIF:**\n"
-    for i, (l, n) in enumerate(PARTNERS_DICT.items(), start=1): txt += f"{i}. {n.upper()} - {l}\n"
-    await event.respond(txt, link_preview=False)
+    buttons = []
+    for i, (l, n) in enumerate(PARTNERS_DICT.items(), start=1):
+        txt += f"{i}. {n.upper()} - {l}\n"
+        buttons.append([Button.inline(f"❌ Hapus {n.upper()}", data=f"del_{i-1}")])
+    await event.respond(txt, buttons=buttons, link_preview=False)
+
+@bot.on(events.CallbackQuery(pattern=r'del_\d+'))
+async def callback_del_partner(event):
+    global PARTNERS_DICT
+    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: 
+        return await event.answer("⚠️ Tidak ada akses!", alert=True)
+    idx = int(event.data.decode().split('_')[1])
+    keys = list(PARTNERS_DICT.keys())
+    if 0 <= idx < len(keys):
+        removed_name = PARTNERS_DICT[keys[idx]]
+        del PARTNERS_DICT[keys[idx]]
+        save_partners(PARTNERS_DICT)
+        await event.answer(f"🗑️ {removed_name.upper()} Berhasil Dihapus!", alert=True)
+        if not PARTNERS_DICT:
+            await event.edit("📂 Kosong!")
+            return
+        txt = "📋 **PARTNER AKTIF:**\n"
+        buttons = []
+        for i, (l, n) in enumerate(PARTNERS_DICT.items(), start=1):
+            txt += f"{i}. {n.upper()} - {l}\n"
+            buttons.append([Button.inline(f"❌ Hapus {n.upper()}", data=f"del_{i-1}")])
+        await event.edit(txt, buttons=buttons, link_preview=False)
+
+@bot.on(events.NewMessage(pattern=r'(?i)^/end'))
+async def end_tagall(event):
+    global stop_current_tagall, is_processing
+    if not event.is_private and event.chat_id != LOG_GROUP_ID: return
+    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
+    if not is_processing:
+        return await event.respond("⚠️ Tidak ada proses tagall yang sedang berjalan.")
+    stop_current_tagall = True
+    await event.respond("🛑 Menghentikan proses tagall saat ini...")
 
 async def process_queue():
-    global is_processing
+    global is_processing, stop_current_tagall
     is_processing = True
     while not tagall_queue.empty():
         task = await tagall_queue.get()
         pemicu, teks, mitra, nama_pt, nama, user = task['p'], task['t'], task['m'], task['pt'], task['n'], task['u']
+        stop_current_tagall = False
         try:
             await bot.send_message(pemicu, "🚀 **GILIRAN ANDA DIMULAI!**")
         except: pass
-        
         first_tag_id = None
         try:
             chat = await bot.get_entity(TARGET_GROUP_ID)
@@ -118,13 +155,11 @@ async def process_queue():
         except:
             tagall_queue.task_done()
             continue
-        
         w_start = datetime.now().strftime("%H:%M:%S WIB")
         log_start = build_log_start(nama, user, pemicu, w_start, mitra, teks)
         try:
             await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='md', link_preview=False)
         except: pass
-
         mentions = []
         try:
             async for u in bot.iter_participants(TARGET_GROUP_ID):
@@ -138,6 +173,8 @@ async def process_queue():
         l_sent = False
         w_habis = False
         for chunk in chunks:
+            if stop_current_tagall:
+                break
             selisih = int(time.time() - t_start)
             if selisih not in range(0, 300):
                 w_habis = True
@@ -154,22 +191,19 @@ async def process_queue():
                 except: pass
         durasi = round((time.time() - t_start) / 60)
         d_txt = f"{durasi}m" if durasi != 0 else f"{round(time.time() - t_start)}s"
-        t_txt = "Selesai (Limit 5m)" if w_habis else "Selesai"
+        t_txt = "Dihentikan Paksa (/end)" if stop_current_tagall else ("Selesai (Limit 5m)" if w_habis else "Selesai")
         try:
             s_msg = await bot.send_message(TARGET_GROUP_ID, f"✅ **{t_txt}!** Pesan sampah dihapus dalam 5 menit...")
             ids.append(s_msg.id)
         except: pass
-
         w_end = datetime.now().strftime("%H:%M:%S WIB")
         log_done = build_log_done(nama, mitra, t_txt, w_end, teks)
         try:
             await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='md', link_preview=False)
         except: pass
-
         clean_group_id = str(TARGET_GROUP_ID).replace('-100', '')
         link_ke_grup_anda = f"https://t.me{clean_group_id}/{first_tag_id}" if first_tag_id else mitra
-        
-        struk = build_struk(nama, mitra, len(mentions))
+        struk = build_struk(nama, nama_pt, mitra, len(mentions))
         try:
             await bot.send_message(
                 pemicu, 
@@ -181,7 +215,6 @@ async def process_queue():
                 ]
             )
         except: pass
-        
         tagall_queue.task_done()
         asyncio.create_task(clean_delayed(ids))
     is_processing = False
@@ -215,5 +248,4 @@ async def handle_public_auto_tagall(event):
     else:
         await event.respond("✅ Terverifikasi! Memulai bot...")
         asyncio.create_task(process_queue())
-
 bot.run_until_disconnected()
