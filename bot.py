@@ -1,6 +1,7 @@
 import os, asyncio, time, json, re, random
 from datetime import datetime
 from telethon import TelegramClient, events, Button
+from telethon.errors import FloodWaitError
 
 try:
     API_ID = int(os.environ.get("API_ID"))
@@ -125,59 +126,130 @@ async def add_partner(event):
     save_partners(PARTNERS_DICT)
     await event.respond("✅ Berhasil ditambah!")
 
-@bot.on(events.NewMessage(pattern=r'(?i)^/delpt(.*)'))
-async def del_partner(event):
-    global PARTNERS_DICT
-    if not event.is_private and event.chat_id != LOG_GROUP_ID: return
-    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
-    inp = event.pattern_match.group(1).strip()
-    if not inp: return
-    keys = list(PARTNERS_DICT.keys())
-    if inp.isdigit():
-        idx = int(inp) - 1
-        if 0 <= idx < len(keys):
-            del PARTNERS_DICT[keys[idx]]
-            save_partners(PARTNERS_DICT)
-            await event.respond("🗑️ Dihapus!")
-    else:
-        if inp in PARTNERS_DICT:
-            del PARTNERS_DICT[inp]
-            save_partners(PARTNERS_DICT)
-            await event.respond("🗑️ Dihapus!")
-
 @bot.on(events.NewMessage(pattern=r'(?i)^/lpt'))
 async def list_partner(event):
     if not event.is_private and event.chat_id != LOG_GROUP_ID: return
     if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: return
     if not PARTNERS_DICT: return await event.respond("📂 Kosong!")
     txt = "📋 **PARTNER AKTIF:**\n"
-    buttons = []
     for i, (l, n) in enumerate(PARTNERS_DICT.items(), start=1):
         txt += f"{i}. {n.upper()} - {l}\n"
-        buttons.append([Button.inline(f"❌ Hapus {n.upper()}", data=f"del_{i-1}")])
+    
+    buttons = [
+        [Button.inline("✏️ Edit Partner", data="partner_select_edit")],
+        [Button.inline("🗑️ Hapus Partner", data="partner_select_del")]
+    ]
     await event.respond(txt, buttons=buttons, link_preview=False)
 
-@bot.on(events.CallbackQuery(pattern=r'^del_\d+$'))
-async def callback_del_partner(event):
+@bot.on(events.CallbackQuery(pattern=r'^partner_select_(edit|del)$'))
+async def callback_select_action(event):
+    action = event.data.decode().split('_')[2]
+    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: 
+        return await event.answer("⚠️ Tidak ada akses!", alert=True)
+    if not PARTNERS_DICT:
+        return await event.edit("📂 Kosong!")
+    
+    txt = f"📋 **PILIH PARTNER UNTUK DI{action.upper()}:**\n\n"
+    buttons = []
+    for i, (l, n) in enumerate(PARTNERS_DICT.items(), start=1):
+        txt += f"{i}. {n.upper()}\n"
+        buttons.append([Button.inline(f"{i}. {n.upper()}", data=f"ptact_{action}_{i-1}")])
+    buttons.append([Button.inline("🔙 Kembali", data="partner_list_back")])
+    await event.edit(txt, buttons=buttons)
+
+@bot.on(events.CallbackQuery(pattern=r'^partner_list_back$'))
+async def callback_list_back(event):
+    if not PARTNERS_DICT: return await event.edit("📂 Kosong!")
+    txt = "📋 **PARTNER AKTIF:**\n"
+    for i, (l, n) in enumerate(PARTNERS_DICT.items(), start=1):
+        txt += f"{i}. {n.upper()} - {l}\n"
+    buttons = [
+        [Button.inline("✏️ Edit Partner", data="partner_select_edit")],
+        [Button.inline("🗑️ Hapus Partner", data="partner_select_del")]
+    ]
+    await event.edit(txt, buttons=buttons, link_preview=False)
+
+@bot.on(events.CallbackQuery(pattern=r'^ptact_del_\d+$'))
+async def callback_delete_partner(event):
     global PARTNERS_DICT
     if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: 
         return await event.answer("⚠️ Tidak ada akses!", alert=True)
-    idx = int(event.data.decode().split('_')[1])
+    idx = int(event.data.decode().split('_')[2])
     keys = list(PARTNERS_DICT.keys())
     if 0 <= idx < len(keys):
         removed_name = PARTNERS_DICT[keys[idx]]
         del PARTNERS_DICT[keys[idx]]
         save_partners(PARTNERS_DICT)
         await event.answer(f"🗑️ {removed_name.upper()} Berhasil Dihapus!", alert=True)
-        if not PARTNERS_DICT:
-            await event.edit("📂 Kosong!")
-            return
-        txt = "📋 **PARTNER AKTIF:**\n"
-        buttons = []
-        for i, (l, n) in enumerate(PARTNERS_DICT.items(), start=1):
-            txt += f"{i}. {n.upper()} - {l}\n"
-            buttons.append([Button.inline(f"❌ Hapus {n.upper()}", data=f"del_{i-1}")])
+        await callback_list_back(event)
+
+@bot.on(events.CallbackQuery(pattern=r'^ptact_edit_\d+$'))
+async def callback_edit_options(event):
+    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: 
+        return await event.answer("⚠️ Tidak ada akses!", alert=True)
+    idx = int(event.data.decode().split('_')[2])
+    keys = list(PARTNERS_DICT.keys())
+    if 0 <= idx < len(keys):
+        link = keys[idx]
+        name = PARTNERS_DICT[link]
+        txt = f"⚙️ **PENGATURAN PARTNER:**\n\nNama: {name.upper()}\nLink: {link}\n\nPilih bagian yang ingin diubah:"
+        buttons = [
+            [Button.inline("📝 Ubah Nama", data=f"ptmod_name_{idx}")],
+            [Button.inline("🔗 Ubah Link", data=f"ptmod_link_{idx}")],
+            [Button.inline("🔙 Kembali", data="partner_select_edit")]
+        ]
         await event.edit(txt, buttons=buttons, link_preview=False)
+
+# Menggunakan handler conversation via bot untuk mengubah data
+@bot.on(events.CallbackQuery(pattern=r'^ptmod_(name|link)_\d+$'))
+async def callback_modify_input(event):
+    global PARTNERS_DICT
+    if event.sender_id != OWNER_ID and event.chat_id != LOG_GROUP_ID: 
+        return await event.answer("⚠️ Tidak ada akses!", alert=True)
+    
+    parts = event.data.decode().split('_')
+    field = parts[1]
+    idx = int(parts[2])
+    keys = list(PARTNERS_DICT.keys())
+    
+    if 0 <= idx < len(keys):
+        old_link = keys[idx]
+        old_name = PARTNERS_DICT[old_link]
+        
+        target_chat = event.chat_id
+        async with bot.conversation(target_chat, user_id=event.sender_id, timeout=60) as conv:
+            if field == "name":
+                await conv.send_message(f"📝 Silakan kirimkan **NAMA BARU** untuk partner **{old_name.upper()}**:")
+                response = await conv.get_response()
+                new_name = response.text.strip()
+                if new_name:
+                    PARTNERS_DICT[old_link] = new_name
+                    save_partners(PARTNERS_DICT)
+                    await conv.send_message(f"✅ Nama berhasil diubah menjadi: **{new_name.upper()}**")
+            elif field == "link":
+                await conv.send_message(f"🔗 Silakan kirimkan **LINK BARU** untuk partner **{old_name.upper()}**:")
+                response = await conv.get_response()
+                new_link = response.text.strip()
+                if new_link.startswith(("http", "t.me")):
+                    if new_link in PARTNERS_DICT:
+                        await conv.send_message("⚠️ Link tersebut sudah terdaftar!")
+                    else:
+                        PARTNERS_DICT[new_link] = PARTNERS_DICT.pop(old_link)
+                        save_partners(PARTNERS_DICT)
+                        await conv.send_message(f"✅ Link berhasil diperbarui!")
+                else:
+                    await conv.send_message("⚠️ Link tidak valid! Perubahan dibatalkan.")
+        
+        # Kembali tampilkan daftar utama
+        if event.is_private:
+            txt = "📋 **PARTNER AKTIF:**\n"
+            for i, (l, n) in enumerate(PARTNERS_DICT.items(), start=1):
+                txt += f"{i}. {n.upper()} - {l}\n"
+            buttons = [
+                [Button.inline("✏️ Edit Partner", data="partner_select_edit")],
+                [Button.inline("🗑️ Hapus Partner", data="partner_select_del")]
+            ]
+            await bot.send_message(target_chat, txt, buttons=buttons, link_preview=False)
 
 @bot.on(events.NewMessage(pattern=r'(?i)^/end'))
 async def end_tagall(event):
@@ -221,10 +293,13 @@ async def process_queue():
         if not mentions:
             tagall_queue.task_done()
             continue
-        chunks = [mentions[i:i + 5] for i in range(0, len(mentions), 5)]
+            
+        # OPTIMISASI KECEPATAN: Menaikkan limit mention per pesan dari 5 menjadi 10
+        chunks = [mentions[i:i + 10] for i in range(0, len(mentions), 10)]
         t_start = time.time()
         l_sent = False
         w_habis = False
+        
         for chunk in chunks:
             if stop_current_tagall:
                 break
@@ -235,13 +310,24 @@ async def process_queue():
             try:
                 m_tag = await bot.send_message(TARGET_GROUP_ID, f"{teks}\n\n" + " ".join(chunk), parse_mode='md')
                 ids.append(m_tag.id)
+            except FloodWaitError as e:
+                await asyncio.sleep(e.seconds)
+                # Coba kirim ulang sekali lagi setelah floodwait selesai
+                try:
+                    m_tag = await bot.send_message(TARGET_GROUP_ID, f"{teks}\n\n" + " ".join(chunk), parse_mode='md')
+                    ids.append(m_tag.id)
+                except: pass
             except: pass
-            await asyncio.sleep(3.5)
+            
+            # OPTIMISASI JEDA: Mengurangi interval jeda dari 3.5s menjadi 1.2s agar pengiriman jauh lebih kilat tanpa memicu spam limit berlebih
+            await asyncio.sleep(1.2)
+            
             if selisih not in range(0, 60) and not l_sent:
                 try:
                     await bot.send_message(pemicu, "📊 **BERJALAN 1 MENIT!**")
                     l_sent = True
                 except: pass
+                
         durasi = round((time.time() - t_start) / 60)
         d_txt = f"{durasi}m" if durasi != 0 else f"{round(time.time() - t_start)}s"
         t_txt = "Dihentikan Paksa (/end)" if stop_current_tagall else ("Selesai (Limit 5m)" if w_habis else "Selesai")
