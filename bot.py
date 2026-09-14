@@ -1,6 +1,7 @@
 import os, asyncio, time, json, re, random
 from datetime import datetime
 from telethon import TelegramClient, events, Button
+from telethon.tl.types import ReplyToMention
 
 try:
     API_ID = int(os.environ.get("API_ID"))
@@ -34,34 +35,34 @@ EMOJIS = ["👑","🔥","⭐","🚀","💎","✨","🎯","⚡","🔮","🍕","�
 
 def build_log_start(a, b, c, d, e, f):
     res = (
-        "<blockquote>"
-        f"📝 <b>Tagall Dimulai</b>\n"
+        "<strong><pre>"
+        f"📝 Tagall Dimulai\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 <b>Nama :</b> {a}\n"
-        f"🆔 <b>Username :</b> @{b}\n"
-        f"🔢 <b>ID :</b> <code>{c}</code>\n"
-        f"⏰ <b>Jam :</b> {d}\n"
-        f"🤝 <b>Link :</b> {e}\n"
-        f"💬 <b>Pesan :</b> \n"
+        f"👤 Nama : {a}\n"
+        f"🆔 Username : @{b}\n"
+        f"🔢 ID : {c}\n"
+        f"⏰ Jam : {d}\n"
+        f"🤝 Link : {e}\n"
+        f"💬 Pesan : \n"
         f"{f}\n"
         f"━━━━━━━━━━━━━━━━━━━━"
-        "</blockquote>"
+        "</pre></strong>"
     )
     return res
 
 def build_log_done(a, b, c, d, e):
     res = (
-        "<blockquote>"
-        f"🟢 <b>Tagall Selesai</b>\n"
+        "<strong><pre>"
+        f"🟢 Tagall Selesai\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 <b>Pengirim :</b> {a}\n"
-        f"🤝 <b>Link :</b> {b}\n"
-        f"⏳ <b>Durasi :</b> {c}\n"
-        f"⏰ <b>Waktu Selesai :</b> {d}\n"
-        f"💬 <b>Pesan :</b> \n"
+        f"👤 Pengirim : {a}\n"
+        f"🤝 Link : {b}\n"
+        f"⏳ Durasi : {c}\n"
+        f"⏰ Waktu Selesai : {d}\n"
+        f"💬 Pesan : \n"
         f"{e}\n"
         f"━━━━━━━━━━━━━━━━━━━━"
-        "</blockquote>"
+        "</pre></strong>"
     )
     return res
 
@@ -157,8 +158,9 @@ async def process_queue():
         w_start = datetime.now().strftime("%H:%M:%S WIB")
         log_start = build_log_start(nama, user, pemicu, w_start, mitra, teks)
         
+        reply_obj = ReplyToMention(reply_to_id=LOG_TOPIC_ID) if LOG_TOPIC_ID else None
         try:
-            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='html', link_preview=False, reply_to=LOG_TOPIC_ID)
+            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='html', link_preview=False, reply_to=reply_obj)
         except Exception as e:
             print(f"Gagal mengirim log start ke topik: {e}")
 
@@ -201,7 +203,7 @@ async def process_queue():
         log_done = build_log_done(nama, mitra, t_txt, w_end, teks)
         
         try:
-            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='html', link_preview=False, reply_to=LOG_TOPIC_ID)
+            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='html', link_preview=False, reply_to=reply_obj)
         except Exception as e:
             print(f"Gagal mengirim log selesai ke topik: {e}")
 
@@ -256,3 +258,4 @@ async def handle_public_auto_tagall(event):
         asyncio.create_task(process_queue())
 
 bot.run_until_disconnected()
+
