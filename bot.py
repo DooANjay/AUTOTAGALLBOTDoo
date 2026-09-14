@@ -1,6 +1,7 @@
 import os, asyncio, time, json, re, random
 from datetime import datetime
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, Button
+from telethon.types import InputReplyToMessage
 
 try:
     API_ID = int(os.environ.get("API_ID"))
@@ -9,6 +10,9 @@ try:
     OWNER_ID = int(os.environ.get("OWNER_ID"))
     TARGET_GROUP_ID = int(os.environ.get("TARGET_GROUP_ID"))
     LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID"))
+    # AMBIL ID TOPIK LOG (Default ke None jika tidak pakai topik)
+    LOG_TOPIC_ID = os.environ.get("LOG_TOPIC_ID")
+    LOG_TOPIC_ID = int(LOG_TOPIC_ID) if LOG_TOPIC_ID and LOG_TOPIC_ID.isdigit() else None
 except (TypeError, ValueError):
     print("❌ ERROR: Periksa kembali variabel di Railway!")
     exit(1)
@@ -20,6 +24,7 @@ is_processing = False
 
 EMOJIS = ["👑","🔥","⭐","🚀","💎","✨","🎯","⚡","🔮","🍕","🍃","🪐","🎈","🎉","🎐","🍭","👾","🧸","🦊","🐼","🐸","🦄","🍀","🍒","🍇","🥑","🎀","🔑","🛡️","🧬","🛸","🍿","🎵","🎸","🎲","🎰","🗽","🗼","🏰","🌊"]
 
+# FORMAT LOG: Diubah menjadi blockquote (menggunakan awalan >) agar teks melengkung rapi
 def build_log_start(a, b, c, d, e, f):
     clean_f = f.replace('\n', '\n>')
     res = f">📝 **Tagall Dimulai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Nama :** {a}\n>🆔 **Username :** @{b}\n>🔢 **ID :** `{c}`\n>⏰ **Jam :** {d}\n>🤝 **Link :** {e}\n>💬 **Pesan :** \n>{clean_f}\n>━━━━━━━━━━━━━━━━━━━━"
@@ -30,8 +35,16 @@ def build_log_done(a, b, c, d, e):
     res = f">🟢 **Tagall Selesai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Pengirim :** {a}\n>🤝 **Link :** {b}\n>⏳ **Durasi :** {c}\n>⏰ **Waktu Selesai :** {d}\n>💬 **Pesan :** \n>{clean_e}\n>━━━━━━━━━━━━━━━━━━━━"
     return res
 
-def build_struk(a, b, c, d, e, f):
-    res = f">━━━━━━━━━━━━━━━━━━━━\n>**TAGALL SELESAI**\n>━━━━━━━━━━━━━━━━━━━━\n>📆 **TANGGAL :** `{a}`\n>🏰 **GROUP :** **{b}**\n>🤝 **PARTNER :** {c} ({d})\n>📩 **TERKIRIM :** `{e}`\n>⏳ **DURASI :** `{f}`\n>━━━━━━━━━━━━━━━━━━━━\n>**teruskan pesan ini sebagai bukti!!!**"
+def build_struk(partner_name, link, member_count):
+    res = (
+        "✨ ✅ **Tagall selesai!**\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"Partner: {partner_name.upper()}\n"
+        f"Link: {link}\n"
+        f"Member di-tag: {member_count}\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "📸 **Jangan lupa SS hasil tagall-nya!**"
+    )
     return res
 
 def load_partners():
@@ -100,18 +113,24 @@ async def process_queue():
         try:
             await bot.send_message(pemicu, "🚀 **GILIRAN ANDA DIMULAI!**")
         except: pass
+        
+        first_tag_id = None
         try:
             chat = await bot.get_entity(TARGET_GROUP_ID)
             i_msg = await bot.send_message(TARGET_GROUP_ID, f"🚀 **TAGALL DIMULAI**\n👥 **GROUP:** {chat.title}", link_preview=False)
             ids = [i_msg.id]
+            first_tag_id = i_msg.id
         except:
             tagall_queue.task_done()
             continue
         
         w_start = datetime.now().strftime("%H:%M:%S WIB")
         log_start = build_log_start(nama, user, pemicu, w_start, mitra, teks)
+        
+        # LOGIK TOPIK: Mengirim pesan log start ke topik tertentu jika diatur
+        reply_to_setting = InputReplyToMessage(reply_to_id=LOG_TOPIC_ID) if LOG_TOPIC_ID else None
         try:
-            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='md', link_preview=False)
+            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='md', link_preview=False, reply_to=reply_to_setting)
         except: pass
 
         mentions = []
@@ -151,14 +170,26 @@ async def process_queue():
 
         w_end = datetime.now().strftime("%H:%M:%S WIB")
         log_done = build_log_done(nama, mitra, t_txt, w_end, teks)
+        
+        # LOGIK TOPIK: Mengirim pesan log done ke topik tertentu jika diatur
         try:
-            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='md', link_preview=False)
+            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='md', link_preview=False, reply_to=reply_to_setting)
         except: pass
 
-        t_now = datetime.now().strftime('%d-%m-%Y %H:%M')
-        struk = build_struk(t_now, chat.title, nama_pt, mitra, len(mentions), d_txt)
+        clean_group_id = str(TARGET_GROUP_ID).replace('-100', '')
+        link_ke_grup_anda = f"https://t.me{clean_group_id}/{first_tag_id}" if first_tag_id else mitra
+        
+        struk = build_struk(nama_pt, mitra, len(mentions))
         try:
-            await bot.send_message(pemicu, struk, parse_mode='md', link_preview=False)
+            await bot.send_message(
+                pemicu, 
+                struk, 
+                parse_mode='md', 
+                link_preview=True, 
+                buttons=[
+                    [Button.url("Lihat Hasil ↗️", url=link_ke_grup_anda)]
+                ]
+            )
         except: pass
         
         tagall_queue.task_done()
@@ -196,5 +227,3 @@ async def handle_public_auto_tagall(event):
         asyncio.create_task(process_queue())
 
 bot.run_until_disconnected()
-
-
