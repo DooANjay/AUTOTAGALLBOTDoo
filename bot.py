@@ -1,7 +1,6 @@
 import os, asyncio, time, json, re, random
 from datetime import datetime
 from telethon import TelegramClient, events, Button
-from telethon.tl.types import ReplyToMention
 
 try:
     API_ID = int(os.environ.get("API_ID"))
@@ -10,18 +9,6 @@ try:
     OWNER_ID = int(os.environ.get("OWNER_ID"))
     TARGET_GROUP_ID = int(os.environ.get("TARGET_GROUP_ID"))
     LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID"))
-    
-    LOG_TOPIC_LINK = os.environ.get("LOG_TOPIC_ID")
-    
-    LOG_TOPIC_ID = None
-    if LOG_TOPIC_LINK:
-        LOG_TOPIC_LINK = LOG_TOPIC_LINK.strip().rstrip('/')
-        match = re.search(r'/(\d+)$', LOG_TOPIC_LINK)
-        if match:
-            LOG_TOPIC_ID = int(match.group(1))
-        elif LOG_TOPIC_LINK.isdigit():
-            LOG_TOPIC_ID = int(LOG_TOPIC_LINK)
-            
 except (TypeError, ValueError):
     print("❌ ERROR: Periksa kembali variabel di Railway!")
     exit(1)
@@ -34,36 +21,13 @@ is_processing = False
 EMOJIS = ["👑","🔥","⭐","🚀","💎","✨","🎯","⚡","🔮","🍕","🍃","🪐","🎈","🎉","🎐","🍭","👾","🧸","🦊","🐼","🐸","🦄","🍀","🍒","🍇","🥑","🎀","🔑","🛡️","🧬","🛸","🍿","🎵","🎸","🎲","🎰","🗽","🗼","🏰","🌊"]
 
 def build_log_start(a, b, c, d, e, f):
-    res = (
-        "<strong><pre>"
-        f"📝 Tagall Dimulai\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 Nama : {a}\n"
-        f"🆔 Username : @{b}\n"
-        f"🔢 ID : {c}\n"
-        f"⏰ Jam : {d}\n"
-        f"🤝 Link : {e}\n"
-        f"💬 Pesan : \n"
-        f"{f}\n"
-        f"━━━━━━━━━━━━━━━━━━━━"
-        "</pre></strong>"
-    )
+    clean_f = f.replace('\n', '\n>')
+    res = f">📝 **Tagall Dimulai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Nama :** {a}\n>🆔 **Username :** @{b}\n>🔢 **ID :** `{c}`\n>⏰ **Jam :** {d}\n>🤝 **Link :** {e}\n>💬 **Pesan :** \n>{clean_f}\n>━━━━━━━━━━━━━━━━━━━━"
     return res
 
 def build_log_done(a, b, c, d, e):
-    res = (
-        "<strong><pre>"
-        f"🟢 Tagall Selesai\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 Pengirim : {a}\n"
-        f"🤝 Link : {b}\n"
-        f"⏳ Durasi : {c}\n"
-        f"⏰ Waktu Selesai : {d}\n"
-        f"💬 Pesan : \n"
-        f"{e}\n"
-        f"━━━━━━━━━━━━━━━━━━━━"
-        "</pre></strong>"
-    )
+    clean_e = e.replace('\n', '\n>')
+    res = f">🟢 **Tagall Selesai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Pengirim :** {a}\n>🤝 **Link :** {b}\n>⏳ **Durasi :** {c}\n>⏰ **Waktu Selesai :** {d}\n>💬 **Pesan :** \n>{clean_e}\n>━━━━━━━━━━━━━━━━━━━━"
     return res
 
 def build_struk(partner_name, link, member_count):
@@ -157,12 +121,9 @@ async def process_queue():
         
         w_start = datetime.now().strftime("%H:%M:%S WIB")
         log_start = build_log_start(nama, user, pemicu, w_start, mitra, teks)
-        
-        reply_obj = ReplyToMention(reply_to_id=LOG_TOPIC_ID) if LOG_TOPIC_ID else None
         try:
-            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='html', link_preview=False, reply_to=reply_obj)
-        except Exception as e:
-            print(f"Gagal mengirim log start ke topik: {e}")
+            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='md', link_preview=False)
+        except: pass
 
         mentions = []
         try:
@@ -201,11 +162,9 @@ async def process_queue():
 
         w_end = datetime.now().strftime("%H:%M:%S WIB")
         log_done = build_log_done(nama, mitra, t_txt, w_end, teks)
-        
         try:
-            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='html', link_preview=False, reply_to=reply_obj)
-        except Exception as e:
-            print(f"Gagal mengirim log selesai ke topik: {e}")
+            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='md', link_preview=False)
+        except: pass
 
         clean_group_id = str(TARGET_GROUP_ID).replace('-100', '')
         link_ke_grup_anda = f"https://t.me{clean_group_id}/{first_tag_id}" if first_tag_id else mitra
@@ -258,4 +217,3 @@ async def handle_public_auto_tagall(event):
         asyncio.create_task(process_queue())
 
 bot.run_until_disconnected()
-
