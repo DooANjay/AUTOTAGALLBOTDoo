@@ -103,6 +103,16 @@ async def start_command(event):
         "> Silakan pilih menu layanan di bawah ini untuk memulai atau mendapatkan informasi lebih lanjut:"
     )
     await event.respond(welcome_text, buttons=get_menu_buttons())
+    
+@bot.on(events.NewMessage(pattern=r'(?i)^/cancel'))
+async def cancel_command(event):
+    if not event.is_private: return
+    user_id = event.sender_id
+    if user_id in add_pt_state:
+        del add_pt_state[user_id]
+        await event.respond("> ❌ **Proses dibatalkan.** Silakan ketik kembali perintah `/lpt` jika ingin memulai ulang.")
+    else:
+        await event.respond("> ⚠️ Tidak ada proses pengisian atau pengeditan data yang sedang berjalan.")
 
 @bot.on(events.CallbackQuery(pattern=r'^menu_.*'))
 async def callback_menu(event):
