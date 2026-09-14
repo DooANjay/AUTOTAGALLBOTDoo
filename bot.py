@@ -10,9 +10,17 @@ try:
     TARGET_GROUP_ID = int(os.environ.get("TARGET_GROUP_ID"))
     LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID"))
     
-    # MENGAMBIL ID TOPIK DARI RAILWAY
-    LOG_TOPIC_ID = os.environ.get("LOG_TOPIC_ID")
-    LOG_TOPIC_ID = int(LOG_TOPIC_ID) if LOG_TOPIC_ID and LOG_TOPIC_ID.isdigit() else None
+    LOG_TOPIC_LINK = os.environ.get("LOG_TOPIC_ID")
+    
+    LOG_TOPIC_ID = None
+    if LOG_TOPIC_LINK:
+        LOG_TOPIC_LINK = LOG_TOPIC_LINK.strip().rstrip('/')
+        match = re.search(r'/(\d+)$', LOG_TOPIC_LINK)
+        if match:
+            LOG_TOPIC_ID = int(match.group(1))
+        elif LOG_TOPIC_LINK.isdigit():
+            LOG_TOPIC_ID = int(LOG_TOPIC_LINK)
+            
 except (TypeError, ValueError):
     print("❌ ERROR: Periksa kembali variabel di Railway!")
     exit(1)
@@ -24,35 +32,36 @@ is_processing = False
 
 EMOJIS = ["👑","🔥","⭐","🚀","💎","✨","🎯","⚡","🔮","🍕","🍃","🪐","🎈","🎉","🎐","🍭","👾","🧸","🦊","🐼","🐸","🦄","🍀","🍒","🍇","🥑","🎀","🔑","🛡️","🧬","🛸","🍿","🎵","🎸","🎲","🎰","🗽","🗼","🏰","🌊"]
 
-# REVISI FORMAT LOG: Memastikan blockquote melengkung (quote) Telegram bekerja sempurna di semua baris
 def build_log_start(a, b, c, d, e, f):
-    clean_f = f.replace('\n', '\n>')
     res = (
-        f">📝 **Tagall Dimulai**\n"
-        f">━━━━━━━━━━━━━━━━━━━━\n"
-        f">👤 **Nama :** {a}\n"
-        f">🆔 **Username :** @{b}\n"
-        f">🔢 **ID :** `{c}`\n"
-        f">⏰ **Jam :** {d}\n"
-        f">🤝 **Link :** {e}\n"
-        f">💬 **Pesan :** \n"
-        f">{clean_f}\n"
-        f">━━━━━━━━━━━━━━━━━━━━"
+        "<blockquote>"
+        f"📝 <b>Tagall Dimulai</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>Nama :</b> {a}\n"
+        f"🆔 <b>Username :</b> @{b}\n"
+        f"🔢 <b>ID :</b> <code>{c}</code>\n"
+        f"⏰ <b>Jam :</b> {d}\n"
+        f"🤝 <b>Link :</b> {e}\n"
+        f"💬 <b>Pesan :</b> \n"
+        f"{f}\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+        "</blockquote>"
     )
     return res
 
 def build_log_done(a, b, c, d, e):
-    clean_e = e.replace('\n', '\n>')
     res = (
-        f">🟢 **Tagall Selesai**\n"
-        f">━━━━━━━━━━━━━━━━━━━━\n"
-        f">👤 **Pengirim :** {a}\n"
-        f">🤝 **Link :** {b}\n"
-        f">⏳ **Durasi :** {c}\n"
-        f">⏰ **Waktu Selesai :** {d}\n"
-        f">💬 **Pesan :** \n"
-        f">{clean_e}\n"
-        f">━━━━━━━━━━━━━━━━━━━━"
+        "<blockquote>"
+        f"🟢 <b>Tagall Selesai</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>Pengirim :</b> {a}\n"
+        f"🤝 <b>Link :</b> {b}\n"
+        f"⏳ <b>Durasi :</b> {c}\n"
+        f"⏰ <b>Waktu Selesai :</b> {d}\n"
+        f"💬 <b>Pesan :</b> \n"
+        f"{e}\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+        "</blockquote>"
     )
     return res
 
@@ -148,9 +157,8 @@ async def process_queue():
         w_start = datetime.now().strftime("%H:%M:%S WIB")
         log_start = build_log_start(nama, user, pemicu, w_start, mitra, teks)
         
-        # PERBAIKAN: Melempar ID Topik secara langsung ke parameter reply_to Telethon agar terkirim ke topik yang benar
         try:
-            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='md', link_preview=False, reply_to=LOG_TOPIC_ID)
+            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='html', link_preview=False, reply_to=LOG_TOPIC_ID)
         except Exception as e:
             print(f"Gagal mengirim log start ke topik: {e}")
 
@@ -192,9 +200,8 @@ async def process_queue():
         w_end = datetime.now().strftime("%H:%M:%S WIB")
         log_done = build_log_done(nama, mitra, t_txt, w_end, teks)
         
-        # PERBAIKAN: Mengarahkan log selesai tepat ke topik target
         try:
-            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='md', link_preview=False, reply_to=LOG_TOPIC_ID)
+            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='html', link_preview=False, reply_to=LOG_TOPIC_ID)
         except Exception as e:
             print(f"Gagal mengirim log selesai ke topik: {e}")
 
@@ -249,4 +256,3 @@ async def handle_public_auto_tagall(event):
         asyncio.create_task(process_queue())
 
 bot.run_until_disconnected()
-
