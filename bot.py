@@ -9,9 +9,11 @@ try:
     OWNER_ID = int(os.environ.get("OWNER_ID"))
     TARGET_GROUP_ID = int(os.environ.get("TARGET_GROUP_ID"))
     LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID"))
+    OWNER_USERNAME = os.environ.get("OWNER_USERNAME", "admin")
 except (TypeError, ValueError):
     print("❌ ERROR: Periksa kembali variabel di Railway!")
     exit(1)
+
 
 bot = TelegramClient('bot_official_session', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 FILE_DB = "partners_database.json"
@@ -225,6 +227,57 @@ async def clean_delayed(ids):
         await bot.delete_messages(TARGET_GROUP_ID, ids)
         await bot.send_message(OWNER_ID, f"🧹 **BERSIH:** {len(ids)} pesan dihapus!")
     except: pass
+        @bot.on(events.NewMessage(pattern=r'(?i)^/start'))
+async def start_command(event):
+    if not event.is_private: return
+    welcome_text = (
+        "👋 **Halo! Selamat datang di Bot Tagall Official**\n\n"
+        "Silakan pilih menu layanan di bawah ini untuk memulai atau mendapatkan informasi lebih lanjut:"
+    )
+    buttons = [
+        [Button.inline("🚀 Mulai Tagall", data="menu_tagall")],
+        [Button.inline("🤝 Minta PT-an (Partner)", data="menu_mitra")],
+        [Button.inline("ℹ️ Info Lainnya", data="menu_info")]
+    ]
+    await event.respond(welcome_text, buttons=buttons)
+
+@bot.on(events.CallbackQuery(pattern=r'menu_.*'))
+async def callback_menu(event):
+    data = event.data.decode()
+    if data == "menu_tagall":
+        text = (
+            "🚀 **Cara Memulai Tagall:**\n\n"
+            "Cukup kirimkan pesan teks yang berisi **Link Partner/Grup** yang sudah terdaftar secara resmi di bot ini.\n\n"
+            "Bot akan otomatis memverifikasi link tersebut dan memasukkan pesanan Anda ke dalam antrian."
+        )
+    elif data == "menu_mitra":
+        text = (
+            "🤝 **Pengajuan Kemitraan (PT-an):**\n\n"
+            "Untuk mendaftarkan grup Anda sebagai partner resmi, silakan hubungi owner bot melalui username di bawah ini:\n\n"
+            f"👤 **Owner:** @{OWNER_USERNAME}\n\n"
+            "Kirimkan format pendaftaran kepada admin agar link Anda terdata di database sistem."
+        )
+    elif data == "menu_info":
+        text = (
+            "ℹ️ **Informasi Bot & Aturan:**\n\n"
+            "• Bot ini berjalan otomatis menggunakan sistem antrian (Queue).\n"
+            "• Setiap sesi tagall dibatasi durasi maksimal 5 menit demi keamanan grup.\n"
+            "• Pesan tagall sampah akan otomatis dibersihkan secara berkala oleh bot."
+        )
+    await event.edit(text, buttons=[[Button.inline("🔙 Kembali", data="menu_back")]])
+
+@bot.on(events.CallbackQuery(pattern=r'menu_back'))
+async def callback_back(event):
+    welcome_text = (
+        "👋 **Halo! Selamat datang di Bot Tagall Official**\n\n"
+        "Silakan pilih menu layanan di bawah ini untuk memulai atau mendapatkan informasi lebih lanjut:"
+    )
+    buttons = [
+        [Button.inline("🚀 Mulai Tagall", data="menu_tagall")],
+        [Button.inline("🤝 Minta PT-an (Partner)", data="menu_mitra")],
+        [Button.inline("ℹ️ Info Lainnya", data="menu_info")]
+    ]
+    await event.edit(welcome_text, buttons=buttons)
 
 @bot.on(events.NewMessage(incoming=True))
 async def handle_public_auto_tagall(event):
