@@ -1,7 +1,6 @@
 import os, asyncio, time, json, re, random
 from datetime import datetime
 from telethon import TelegramClient, events, Button
-from telethon.types import InputReplyToMessage
 
 try:
     API_ID = int(os.environ.get("API_ID"))
@@ -10,7 +9,8 @@ try:
     OWNER_ID = int(os.environ.get("OWNER_ID"))
     TARGET_GROUP_ID = int(os.environ.get("TARGET_GROUP_ID"))
     LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID"))
-    # AMBIL ID TOPIK LOG (Default ke None jika tidak pakai topik)
+    
+    # MENGAMBIL ID TOPIK DARI RAILWAY
     LOG_TOPIC_ID = os.environ.get("LOG_TOPIC_ID")
     LOG_TOPIC_ID = int(LOG_TOPIC_ID) if LOG_TOPIC_ID and LOG_TOPIC_ID.isdigit() else None
 except (TypeError, ValueError):
@@ -24,15 +24,36 @@ is_processing = False
 
 EMOJIS = ["👑","🔥","⭐","🚀","💎","✨","🎯","⚡","🔮","🍕","🍃","🪐","🎈","🎉","🎐","🍭","👾","🧸","🦊","🐼","🐸","🦄","🍀","🍒","🍇","🥑","🎀","🔑","🛡️","🧬","🛸","🍿","🎵","🎸","🎲","🎰","🗽","🗼","🏰","🌊"]
 
-# FORMAT LOG: Diubah menjadi blockquote (menggunakan awalan >) agar teks melengkung rapi
+# REVISI FORMAT LOG: Memastikan blockquote melengkung (quote) Telegram bekerja sempurna di semua baris
 def build_log_start(a, b, c, d, e, f):
     clean_f = f.replace('\n', '\n>')
-    res = f">📝 **Tagall Dimulai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Nama :** {a}\n>🆔 **Username :** @{b}\n>🔢 **ID :** `{c}`\n>⏰ **Jam :** {d}\n>🤝 **Link :** {e}\n>💬 **Pesan :** \n>{clean_f}\n>━━━━━━━━━━━━━━━━━━━━"
+    res = (
+        f">📝 **Tagall Dimulai**\n"
+        f">━━━━━━━━━━━━━━━━━━━━\n"
+        f">👤 **Nama :** {a}\n"
+        f">🆔 **Username :** @{b}\n"
+        f">🔢 **ID :** `{c}`\n"
+        f">⏰ **Jam :** {d}\n"
+        f">🤝 **Link :** {e}\n"
+        f">💬 **Pesan :** \n"
+        f">{clean_f}\n"
+        f">━━━━━━━━━━━━━━━━━━━━"
+    )
     return res
 
 def build_log_done(a, b, c, d, e):
     clean_e = e.replace('\n', '\n>')
-    res = f">🟢 **Tagall Selesai**\n>━━━━━━━━━━━━━━━━━━━━\n>👤 **Pengirim :** {a}\n>🤝 **Link :** {b}\n>⏳ **Durasi :** {c}\n>⏰ **Waktu Selesai :** {d}\n>💬 **Pesan :** \n>{clean_e}\n>━━━━━━━━━━━━━━━━━━━━"
+    res = (
+        f">🟢 **Tagall Selesai**\n"
+        f">━━━━━━━━━━━━━━━━━━━━\n"
+        f">👤 **Pengirim :** {a}\n"
+        f">🤝 **Link :** {b}\n"
+        f">⏳ **Durasi :** {c}\n"
+        f">⏰ **Waktu Selesai :** {d}\n"
+        f">💬 **Pesan :** \n"
+        f">{clean_e}\n"
+        f">━━━━━━━━━━━━━━━━━━━━"
+    )
     return res
 
 def build_struk(partner_name, link, member_count):
@@ -127,11 +148,11 @@ async def process_queue():
         w_start = datetime.now().strftime("%H:%M:%S WIB")
         log_start = build_log_start(nama, user, pemicu, w_start, mitra, teks)
         
-        # LOGIK TOPIK: Mengirim pesan log start ke topik tertentu jika diatur
-        reply_to_setting = InputReplyToMessage(reply_to_id=LOG_TOPIC_ID) if LOG_TOPIC_ID else None
+        # PERBAIKAN: Melempar ID Topik secara langsung ke parameter reply_to Telethon agar terkirim ke topik yang benar
         try:
-            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='md', link_preview=False, reply_to=reply_to_setting)
-        except: pass
+            await bot.send_message(LOG_GROUP_ID, log_start, parse_mode='md', link_preview=False, reply_to=LOG_TOPIC_ID)
+        except Exception as e:
+            print(f"Gagal mengirim log start ke topik: {e}")
 
         mentions = []
         try:
@@ -171,10 +192,11 @@ async def process_queue():
         w_end = datetime.now().strftime("%H:%M:%S WIB")
         log_done = build_log_done(nama, mitra, t_txt, w_end, teks)
         
-        # LOGIK TOPIK: Mengirim pesan log done ke topik tertentu jika diatur
+        # PERBAIKAN: Mengarahkan log selesai tepat ke topik target
         try:
-            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='md', link_preview=False, reply_to=reply_to_setting)
-        except: pass
+            await bot.send_message(LOG_GROUP_ID, log_done, parse_mode='md', link_preview=False, reply_to=LOG_TOPIC_ID)
+        except Exception as e:
+            print(f"Gagal mengirim log selesai ke topik: {e}")
 
         clean_group_id = str(TARGET_GROUP_ID).replace('-100', '')
         link_ke_grup_anda = f"https://t.me{clean_group_id}/{first_tag_id}" if first_tag_id else mitra
@@ -227,3 +249,4 @@ async def handle_public_auto_tagall(event):
         asyncio.create_task(process_queue())
 
 bot.run_until_disconnected()
+
